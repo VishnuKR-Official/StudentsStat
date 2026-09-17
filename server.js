@@ -117,8 +117,8 @@ app.get('/api/students', async (req, res) => {
   }
 });
 
-// Create a student
-app.post('/api/students', async (req, res) => {
+// Create a student (Admin Protected)
+app.post('/api/students', requireAdmin, async (req, res) => {
   try {
     const { name, level, description, avatar } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
@@ -152,8 +152,8 @@ app.post('/api/students', async (req, res) => {
   }
 });
 
-// Update a student (name / level / description / avatar)
-app.patch('/api/students/:id', async (req, res) => {
+// Update a student (name / level / description / avatar) (Admin Protected)
+app.patch('/api/students/:id', requireAdmin, async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM students WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'not found' });
