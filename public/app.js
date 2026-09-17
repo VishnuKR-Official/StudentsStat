@@ -6,6 +6,7 @@
   let editingId = null;
   let pendingAvatar = null;
   let prevPositions = {}; // id -> {level, weeksStale} from the last render, to detect "just snapped back"
+  let adminPasscode = sessionStorage.getItem('adminPasscode') || null;
 
   const grid = document.getElementById('grid');
   const emptyState = document.getElementById('emptyState');
@@ -14,6 +15,30 @@
   const footerNote = document.getElementById('footerNote');
   const trackEl = document.getElementById('track');
   const tooltip = document.getElementById('tooltip');
+  const adminModal = document.getElementById('adminModal');
+  const btnAdminToggle = document.getElementById('btnAdminToggle');
+  const adminPassInput = document.getElementById('adminPassInput');
+
+  function updateAdminUI() {
+    if (adminPasscode) {
+      btnAdminToggle.className = 'admin-badge unlocked';
+      btnAdminToggle.textContent = '🔓 Admin Unlocked';
+    } else {
+      btnAdminToggle.className = 'admin-badge locked';
+      btnAdminToggle.textContent = '🔒 Public View (Locked)';
+    }
+  }
+
+  function promptAdminUnlock(onSuccess) {
+    adminModal.classList.add('open');
+    adminPassInput.value = '';
+    adminPassInput.focus();
+    window._adminSuccessCb = onSuccess;
+  }
+  function closeAdminModal() {
+    adminModal.classList.remove('open');
+    window._adminSuccessCb = null;
+  }
 
   function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
   function tierInfo(level) {
@@ -36,8 +61,19 @@
     return s.weeksStale + ' week' + (s.weeksStale === 1 ? '' : 's') + ' without an update';
   }
 
-  async function api(path, opts) {
+  async function api(path, opts = {}) {
+    opts.headers = opts.headers || {};
+    if (adminPasscode) {
+      opts.headers['x-admin-passcode'] = adminPasscode;
+    }
     const res = await fetch(path, opts);
+    if (res.status === 401) {
+      adminPasscode = null;
+      sessionStorage.removeItem('adminPasscode');
+      updateAdminUI();
+      promptAdminUnlock();
+      throw new Error('Admin passcode required');
+    }
     if (!res.ok) {
       let msg = 'Request failed';
       try { const j = await res.json(); msg = j.error || msg; } catch (e) {}
@@ -53,6 +89,7 @@
   }
 
   async function init() {
+    updateAdminUI();
     try {
       await loadStudents();
       modeBadge.textContent = 'Connected — changes save to the server';
@@ -333,6 +370,46 @@
     };
     reader.readAsText(file);
     importFile.value = '';
+  });
+
+  btnAdminToggle.addEventListener('click', () => {
+    if (adminPasscode) {
+      if (confirm('Lock Admin Mode and return to Public View?')) {
+        adminPasscode = null;
+        sessionStorage.removeItem('adminPasscode');
+        updateAdminUI();
+      }
+    } else {
+      promptAdminUnlock();
+    }
+  });
+
+  document.getElementById('btnAdminClose').addEventListener('click', closeAdminModal);
+
+  async function performAdminUnlock() {
+    const val = adminPassInput.value.trim();
+    if (!val) return;
+    try {
+      const res = await fetch('/api/admin/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passcode: val })
+      });
+      if (!res.ok) throw new Error('Incorrect passcode');
+      adminPasscode = val;
+      sessionStorage.setItem('adminPasscode', val);
+      updateAdminUI();
+      const cb = window._adminSuccessCb;
+      closeAdminModal();
+      if (cb) cb();
+    } catch (e) {
+      alert('Unlock failed: ' + e.message);
+    }
+  }
+
+  document.getElementById('btnAdminUnlock').addEventListener('click', performAdminUnlock);
+  adminPassInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') performAdminUnlock();
   });
 
   init();

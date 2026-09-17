@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rank Board — 52 Levels</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -29,6 +30,7 @@
     <button class="primary" id="btnToggleAdd">+ Add student</button>
     <button class="ghost small" id="btnExport">Export backup</button>
     <button class="ghost small" id="btnImportTrigger">Import backup</button>
+    <button class="admin-badge locked" id="btnAdminToggle">🔒 Public View (Locked)</button>
     <input type="file" id="importFile" accept="application/json">
   </div>
 
@@ -77,6 +79,22 @@
   <div class="t-tier" id="ttTier"></div>
   <div class="t-streak" id="ttStreak"></div>
   <div class="t-desc" id="ttDesc"></div>
+</div>
+
+<!-- Admin Passcode Modal -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal-box">
+    <h3>Admin Security Unlock</h3>
+    <p>Enter your Admin Passcode to perform sensitive operations like deleting students or replacing the entire board.</p>
+    <div class="field">
+      <label for="adminPassInput">Admin Passcode</label>
+      <input type="password" id="adminPassInput" placeholder="Default passcode is 1234" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="primary" id="btnAdminUnlock">Unlock Admin</button>
+      <button class="ghost" id="btnAdminClose">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <script src="/app.js"></script>

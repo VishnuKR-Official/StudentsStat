@@ -79,10 +79,30 @@ function withComputed(s) {
   return { ...s, weeksStale, justLeveledUp };
 }
 
+// ---- Admin Protection Configuration ----------------------------------------
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '1234';
+
+function requireAdmin(req, res, next) {
+  const passcode = req.headers['x-admin-passcode'];
+  if (passcode === ADMIN_PASSWORD) {
+    return next();
+  }
+  return res.status(401).json({ error: 'Admin passcode required or invalid' });
+}
+
 // ---- app ---------------------------------------------------------------
 const app = express();
 app.use(express.json({ limit: '5mb' })); // generous, avatars are base64
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Admin verification endpoint
+app.post('/api/admin/verify', (req, res) => {
+  const { passcode } = req.body || {};
+  if (passcode === ADMIN_PASSWORD) {
+    return res.json({ success: true });
+  }
+  return res.status(401).json({ success: false, error: 'Incorrect passcode' });
+});
 
 // List all students
 app.get('/api/students', async (req, res) => {
@@ -203,8 +223,8 @@ app.post('/api/students/:id/bump', async (req, res) => {
   }
 });
 
-// Delete a student
-app.delete('/api/students/:id', async (req, res) => {
+// Delete a student (Admin Protected)
+app.delete('/api/students/:id', requireAdmin, async (req, res) => {
   try {
     const result = await pool.query('DELETE FROM students WHERE id = $1', [req.params.id]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'not found' });
@@ -228,7 +248,15 @@ app.get('/api/export', async (req, res) => {
   }
 });
 
-app.post('/api/import', async (req, res) => {
+app.post('/api/import', async (req, res, next) => {
+  const mode = req.query.mode === 'merge' ? 'merge' : 'replace';
+  if (mode === 'replace') {
+    return requireAdmin(req, res, () => handleImport(req, res, mode));
+  }
+  return handleImport(req, res, mode);
+});
+
+async function handleImport(req, res, mode) {
   const client = await pool.connect();
   try {
     const incoming = req.body;
@@ -273,7 +301,7 @@ app.post('/api/import', async (req, res) => {
   } finally {
     client.release();
   }
-});
+}
 
 // Simple health check — useful for uptime pings (see README, "keep it warm")
 app.get('/api/health', async (req, res) => {
