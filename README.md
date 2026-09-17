@@ -1,5 +1,7 @@
 # Rank Board — Postgres/Supabase edition
 
+🚀 **Live App**: [https://studentsstat.onrender.com](https://studentsstat.onrender.com)
+
 Same gamified 52-level student board as before, but the storage layer is now
 a real hosted Postgres database (via Supabase) instead of a JSON file on
 disk. Nothing about the frontend changed — `public/` is byte-for-byte the
