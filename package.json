@@ -1,0 +1,18 @@
+{
+  "name": "rank-board-app",
+  "version": "2.0.0",
+  "description": "Gamified student rank board, Postgres/Supabase-backed",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "migrate": "node migrate-json-to-pg.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "pg": "^8.13.1",
+    "dotenv": "^16.4.5"
+  }
+}

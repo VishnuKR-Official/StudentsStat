@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rank Board — 52 Levels</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="title-block">
+      <h1>Rank <span>Board</span></h1>
+      <p>Track progress across 52 levels. Hover a profile for what they're currently learning.</p>
+      <div class="mode-badge" id="modeBadge">Connecting…</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n" id="statCount">0</div><div class="l">Students</div></div>
+      <div class="stat"><div class="n" id="statAvg">0</div><div class="l">Avg. level</div></div>
+      <div class="stat"><div class="n" id="statMax">0</div><div class="l">Level 52</div></div>
+    </div>
+  </header>
+
+  <div class="toolbar" id="toolbar">
+    <button class="primary" id="btnToggleAdd">+ Add student</button>
+    <button class="ghost small" id="btnExport">Export backup</button>
+    <button class="ghost small" id="btnImportTrigger">Import backup</button>
+    <input type="file" id="importFile" accept="application/json">
+  </div>
+
+  <div class="panel" id="editPanel">
+    <h3 id="panelTitle">New student</h3>
+    <div class="panel-row">
+      <div class="avatar-picker" id="avatarPicker">Photo</div>
+      <input type="file" id="avatarFile" accept="image/*">
+      <div class="field">
+        <label for="fName">Name</label>
+        <input type="text" id="fName" placeholder="Student name" maxlength="60">
+      </div>
+      <div class="field">
+        <label for="fLevel">Level (1–52)</label>
+        <input type="number" id="fLevel" min="1" max="52" value="1">
+      </div>
+      <div class="field" style="flex:1;">
+        <label for="fDesc">Currently learning</label>
+        <textarea id="fDesc" placeholder="e.g. Fractions, chapter 4 — long division" maxlength="240"></textarea>
+      </div>
+    </div>
+    <div class="panel-actions">
+      <button class="primary" id="btnSave">Save</button>
+      <button class="ghost" id="btnCancel">Cancel</button>
+    </div>
+  </div>
+
+  <div class="track-section">
+    <h2>Milestone track</h2>
+    <p class="track-hint">Position = level. Height = momentum — a profile sinks a little for every week without an update, and jumps back onto the line the moment a level changes.</p>
+    <div class="track-wrap"><div class="track" id="track"></div></div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="emptyState" style="display:none;">
+    <h3>No students yet</h3>
+    <div>Add your first student to start tracking levels.</div>
+  </div>
+
+</div>
+
+<footer id="footerNote">Connecting to the server…</footer>
+
+<div class="tooltip" id="tooltip">
+  <div class="t-name" id="ttName"></div>
+  <div class="t-tier" id="ttTier"></div>
+  <div class="t-streak" id="ttStreak"></div>
+  <div class="t-desc" id="ttDesc"></div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

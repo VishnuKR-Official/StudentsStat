@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: rank-board-app
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: PORT
+        value: 10000
