@@ -1195,7 +1195,6 @@
     importFile.value = '';
   });
 
-  const btnLeaveBatch = document.getElementById('btnLeaveBatch');
   if (btnLeaveBatch) {
     btnLeaveBatch.addEventListener('click', async () => {
       if (!(await askConfirm('Leave Batch', 'Are you sure you want to leave this batch?'))) return;
