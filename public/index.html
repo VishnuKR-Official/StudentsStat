@@ -31,6 +31,7 @@
   <div class="toolbar" id="toolbar">
     <button class="primary" id="btnJoinRace" style="display:none;">+ Join Race</button>
     <button class="ghost small" id="btnLoginToggle">Login / Register</button>
+    <span id="adminBadge" style="display:none; color:var(--gold); font-weight:bold; margin-right:15px;">👑 Admin</span>
     <button class="ghost small" id="btnLogout" style="display:none;">Logout</button>
     <button class="ghost small" id="btnExport">Export backup</button>
     <button class="ghost small" id="btnImportTrigger">Import backup</button>
@@ -38,7 +39,7 @@
   </div>
 
   <!-- Auth Modal -->
-  <div class="modal" id="authModal">
+  <div class="modal-overlay" id="authModal">
     <div class="modal-box">
       <h3>Login / Register</h3>
       <p style="color:var(--color-text-muted); font-size:0.9rem; margin-bottom:15px;">Create an account to join the race, or login to update your level.</p>
@@ -156,21 +157,6 @@
   <div class="t-desc" id="ttDesc"></div>
 </div>
 
-<!-- Admin Passcode Modal -->
-<div class="modal-overlay" id="adminModal">
-  <div class="modal-box">
-    <h3>Admin Security Unlock</h3>
-    <p>Enter your Admin Passcode to perform sensitive operations like deleting students or replacing the entire board.</p>
-    <div class="field">
-      <label for="adminPassInput">Admin Passcode</label>
-      <input type="password" id="adminPassInput" placeholder="Enter Admin Passcode" autocomplete="off">
-    </div>
-    <div class="modal-actions">
-      <button class="primary" id="btnAdminUnlock">Unlock Admin</button>
-      <button class="ghost" id="btnAdminClose">Cancel</button>
-    </div>
-  </div>
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="/app.js?v=2"></script>

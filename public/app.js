@@ -153,12 +153,20 @@
   updateTagline();
   setInterval(updateTagline, 10 * 60 * 1000);
 
+  const adminBadge = document.getElementById('adminBadge');
+
   function updateAuthUI() {
     if (authToken && currentUser) {
       btnLoginToggle.style.display = 'none';
       btnLogout.style.display = 'inline-block';
+      if (currentUser.role === 'admin') {
+        adminBadge.style.display = 'inline-block';
+      } else {
+        adminBadge.style.display = 'none';
+      }
+      
       const userHasProfile = students.some(s => s.id === currentUser.id || s.email === currentUser.email);
-      if (userHasProfile) {
+      if (userHasProfile || currentUser.role === 'admin') {
         btnJoinRace.style.display = 'none';
       } else {
         btnJoinRace.style.display = 'inline-block';
@@ -167,6 +175,7 @@
       btnLoginToggle.style.display = 'inline-block';
       btnLogout.style.display = 'none';
       btnJoinRace.style.display = 'none';
+      if (adminBadge) adminBadge.style.display = 'none';
     }
   }
 
