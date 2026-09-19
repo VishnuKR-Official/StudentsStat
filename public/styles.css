@@ -160,6 +160,12 @@ input[type=file]{display:none;}
 .tooltip .t-desc.empty{color:var(--muted);font-style:italic;}
 
 footer{max-width:1080px;margin:40px auto 0;color:var(--muted);font-size:0.78rem;text-align:center;}
+.author-footer{max-width:1080px;margin:10px auto 0;color:var(--muted);font-size:0.85rem;text-align:center;}
+.author-footer a{color:var(--gold);text-decoration:none;font-weight:600;}
+.author-footer a:hover{text-decoration:underline;}
+
+.tagline{font-size:1.1rem;color:var(--teal);margin-bottom:12px;font-style:italic;}
+
 @media (max-width:480px){
   .stats{gap:14px;}
   .panel-row{gap:10px;}

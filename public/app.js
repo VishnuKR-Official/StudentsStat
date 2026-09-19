@@ -18,6 +18,26 @@
   const adminModal = document.getElementById('adminModal');
   const btnAdminToggle = document.getElementById('btnAdminToggle');
   const adminPassInput = document.getElementById('adminPassInput');
+  const taglineEl = document.getElementById('motivationalTagline');
+
+  const taglines = [
+    "Learning is a journey, not a destination.",
+    "Small steps every day lead to big results.",
+    "Consistency is the key to mastery.",
+    "Challenge yourself to grow.",
+    "Knowledge is power.",
+    "Keep pushing your limits."
+  ];
+
+  function updateTagline() {
+    if (taglineEl) {
+      taglineEl.textContent = `"${taglines[Math.floor(Math.random() * taglines.length)]}"`;
+    }
+  }
+  
+  // Initialize tagline and rotate every 10 minutes
+  updateTagline();
+  setInterval(updateTagline, 10 * 60 * 1000);
 
   function updateAdminUI() {
     if (adminPasscode) {
@@ -262,13 +282,22 @@
   }
 
   async function removeStudent(s) {
-    if (!confirm(`Remove ${s.name} from the board? This can't be undone.`)) return;
-    try {
-      await api(`${API}/${s.id}`, { method: 'DELETE' });
-      students = students.filter(x => x.id !== s.id);
-      delete prevPositions[s.id];
-      render();
-    } catch (e) { alert('Could not delete: ' + e.message); }
+    if (adminPasscode) {
+      if (!confirm(`Remove ${s.name} from the board? This can't be undone.`)) return;
+      try {
+        await api(`${API}/${s.id}`, { method: 'DELETE' });
+        students = students.filter(x => x.id !== s.id);
+        delete prevPositions[s.id];
+        render();
+      } catch (e) { alert('Could not delete: ' + e.message); }
+    } else {
+      if (!confirm(`Request admin to remove ${s.name} from the board?`)) return;
+      try {
+        const res = await fetch(`${API}/${s.id}/delete-request`, { method: 'POST' });
+        if (res.ok) alert('Delete request sent to admin.');
+        else alert('Could not send delete request.');
+      } catch (e) { alert('Could not request: ' + e.message); }
+    }
   }
 
   function fileToDataUrl(file, cb) {
@@ -315,6 +344,10 @@
     avatarPicker.innerHTML = 'Photo';
   }
   document.getElementById('btnToggleAdd').addEventListener('click', () => {
+    if (!adminPasscode && localStorage.getItem('hasCreatedProfile')) {
+      alert('You have already created a student profile. Only one profile per visitor is allowed.');
+      return;
+    }
     editPanel.classList.contains('open') ? closePanel() : openPanel(null);
   });
   document.getElementById('btnCancel').addEventListener('click', closePanel);
@@ -343,6 +376,7 @@
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
         students.push(created);
+        if (!adminPasscode) localStorage.setItem('hasCreatedProfile', 'true');
       }
       closePanel(); render();
     } catch (e) { alert('Could not save: ' + e.message); }

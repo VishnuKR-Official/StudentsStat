@@ -7,6 +7,28 @@ const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
+const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+async function uploadAvatar(base64Str) {
+  if (!base64Str || !base64Str.startsWith('data:image')) return base64Str;
+  try {
+    const result = await cloudinary.uploader.upload(base64Str, {
+      folder: 'rank-board-avatars',
+      width: 200,
+      crop: "scale"
+    });
+    return result.secure_url;
+  } catch (err) {
+    console.error("Cloudinary upload error:", err);
+    return null;
+  }
+}
 
 const PORT = process.env.PORT || 3000;
 const MAX_LEVEL = 52;
@@ -124,12 +146,13 @@ app.post('/api/students', requireAdmin, async (req, res) => {
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
     const lvl = clampLevel(level);
     const now = Date.now();
+    const avatarUrl = await uploadAvatar(avatar);
     const student = {
       id: uid(),
       name: String(name).trim().slice(0, 60),
       level: lvl,
       description: (description || '').slice(0, 240),
-      avatar: avatar || null,
+      avatar: avatarUrl || null,
       createdAt: now,
       lastUpdated: now,
       lastLevelUpAt: now,
@@ -164,7 +187,9 @@ app.patch('/api/students/:id', requireAdmin, async (req, res) => {
 
     if (typeof name === 'string' && name.trim()) s.name = name.trim().slice(0, 60);
     if (typeof description === 'string') s.description = description.slice(0, 240);
-    if (typeof avatar === 'string' || avatar === null) s.avatar = avatar;
+    if (typeof avatar === 'string' || avatar === null) {
+      s.avatar = await uploadAvatar(avatar);
+    }
 
     if (level !== undefined && level !== null) {
       const lvl = clampLevel(level);
@@ -226,9 +251,27 @@ app.post('/api/students/:id/bump', async (req, res) => {
 // Delete a student (Admin Protected)
 app.delete('/api/students/:id', requireAdmin, async (req, res) => {
   try {
+    await pool.query('DELETE FROM delete_requests WHERE student_id = $1', [req.params.id]);
     const result = await pool.query('DELETE FROM students WHERE id = $1', [req.params.id]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'not found' });
     res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'database error' });
+  }
+});
+
+// Request deletion of a student
+app.post('/api/students/:id/delete-request', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT id FROM students WHERE id = $1', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'not found' });
+    
+    await pool.query(
+      'INSERT INTO delete_requests (student_id, requested_at) VALUES ($1, $2)',
+      [req.params.id, Date.now()]
+    );
+    res.json({ success: true, message: 'Deletion request sent to admin.' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'database error' });
@@ -330,6 +373,13 @@ async function initDb() {
         history         JSONB NOT NULL DEFAULT '[]'::jsonb
       );
       CREATE INDEX IF NOT EXISTS students_level_idx ON students (level DESC);
+      ALTER TABLE students ENABLE ROW LEVEL SECURITY;
+      
+      CREATE TABLE IF NOT EXISTS delete_requests (
+        id              SERIAL PRIMARY KEY,
+        student_id      TEXT NOT NULL,
+        requested_at    BIGINT NOT NULL
+      );
     `);
     console.log('✓ Database schema verified/initialized (students table & index ready).');
   } catch (err) {
