@@ -318,7 +318,16 @@
   }
 
   async function loadStudents() {
-    students = await api(API);
+    try {
+      if (authToken) {
+        students = await api(API);
+      } else {
+        students = [];
+      }
+    } catch (e) {
+      console.warn('Failed to load students:', e);
+      students = [];
+    }
     updateAuthUI();
     render();
   }
