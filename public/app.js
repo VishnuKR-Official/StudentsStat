@@ -155,6 +155,19 @@
 
   const adminBadge = document.getElementById('adminBadge');
 
+  const messageModal = document.getElementById('messageModal');
+  const messageTitle = document.getElementById('messageTitle');
+  const messageBody = document.getElementById('messageBody');
+  document.getElementById('btnMessageClose').addEventListener('click', () => {
+    messageModal.classList.remove('open');
+  });
+
+  function showMessage(title, text) {
+    messageTitle.textContent = title;
+    messageBody.textContent = text;
+    messageModal.classList.add('open');
+  }
+
   function updateAuthUI() {
     if (authToken && currentUser) {
       btnLoginToggle.style.display = 'none';
@@ -281,12 +294,12 @@
   authSubmit.addEventListener('click', async () => {
     const email = authEmail.value.trim();
     const password = authPassword.value;
-    if (!email || !password) return alert('Email and Password required');
+    if (!email || !password) return showMessage('Error', 'Email and Password required');
 
     try {
       if (authMode === 'register') {
         const name = authName.value.trim();
-        if (!name) return alert('Name required');
+        if (!name) return showMessage('Error', 'Name required');
         
         // Use the proper register endpoint so it checks for dupes and sets 'admin' for the first user
         const regRes = await fetch('/api/register', {
@@ -312,7 +325,7 @@
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
         
-        alert("Registration successful! You have been automatically logged in.");
+        showMessage("Welcome", "Registration successful! You have been automatically logged in.");
       } else {
         // Login
         const res = await fetch('/api/login', {
@@ -330,14 +343,14 @@
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
         
-        alert("Login successful!");
+        showMessage("Welcome Back", "Login successful!");
       }
       authModal.classList.remove('open');
       authEmail.value = '';
       authPassword.value = '';
       await loadStudents();
     } catch (e) {
-      alert('Error: ' + e.message);
+      showMessage("Error", e.message);
     }
   });
 
@@ -985,45 +998,7 @@
     importFile.value = '';
   });
 
-  btnAdminToggle.addEventListener('click', () => {
-    if (adminPasscode) {
-      if (confirm('Lock Admin Mode and return to Public View?')) {
-        adminPasscode = null;
-        sessionStorage.removeItem('adminPasscode');
-        updateAdminUI();
-      }
-    } else {
-      promptAdminUnlock();
-    }
-  });
 
-  document.getElementById('btnAdminClose').addEventListener('click', closeAdminModal);
-
-  async function performAdminUnlock() {
-    const val = adminPassInput.value.trim();
-    if (!val) return;
-    try {
-      const res = await fetch('/api/admin/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passcode: val })
-      });
-      if (!res.ok) throw new Error('Incorrect passcode');
-      adminPasscode = val;
-      sessionStorage.setItem('adminPasscode', val);
-      updateAdminUI();
-      const cb = window._adminSuccessCb;
-      closeAdminModal();
-      if (cb) cb();
-    } catch (e) {
-      alert('Unlock failed: ' + e.message);
-    }
-  }
-
-  document.getElementById('btnAdminUnlock').addEventListener('click', performAdminUnlock);
-  adminPassInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') performAdminUnlock();
-  });
 
   init();
   // Refresh periodically so streak/emoji state (and other people's edits) stay current
