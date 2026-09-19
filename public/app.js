@@ -19,6 +19,16 @@
   const btnAdminToggle = document.getElementById('btnAdminToggle');
   const adminPassInput = document.getElementById('adminPassInput');
   const taglineEl = document.getElementById('motivationalTagline');
+  
+  // Chart Elements
+  const btnViewTrack = document.getElementById('btnViewTrack');
+  const btnViewBar = document.getElementById('btnViewBar');
+  const btnViewPie = document.getElementById('btnViewPie');
+  const viewTrackContainer = document.getElementById('viewTrackContainer');
+  const viewChartContainer = document.getElementById('viewChartContainer');
+  const ctxChart = document.getElementById('statsChart').getContext('2d');
+  let currentChart = null;
+  let currentView = 'track'; // 'track', 'bar', 'pie'
 
   const taglines = [
     "Learning is a journey, not a destination.",
@@ -257,6 +267,84 @@
     return card;
   }
 
+  function renderCharts() {
+    if (currentChart) {
+      currentChart.destroy();
+    }
+    
+    if (currentView === 'track') {
+      viewTrackContainer.style.display = 'block';
+      viewChartContainer.style.display = 'none';
+      return;
+    }
+    
+    viewTrackContainer.style.display = 'none';
+    viewChartContainer.style.display = 'block';
+
+    const levels = students.map(s => s.level);
+    
+    if (currentView === 'bar') {
+      // Group by level ranges
+      const ranges = { 'Rookie (1-13)': 0, 'Skilled (14-26)': 0, 'Expert (27-39)': 0, 'Master (40-52)': 0 };
+      students.forEach(s => {
+        if (s.level <= 13) ranges['Rookie (1-13)']++;
+        else if (s.level <= 26) ranges['Skilled (14-26)']++;
+        else if (s.level <= 39) ranges['Expert (27-39)']++;
+        else ranges['Master (40-52)']++;
+      });
+      
+      currentChart = new Chart(ctxChart, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(ranges),
+          datasets: [{
+            label: 'Number of Students',
+            data: Object.values(ranges),
+            backgroundColor: ['#e2e8f0', '#94a3b8', '#64748b', '#0f172a']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+    } else if (currentView === 'pie') {
+      // Group by domains
+      const domains = {};
+      students.forEach(s => {
+        const d = (s.domain || 'Unspecified').trim();
+        domains[d] = (domains[d] || 0) + 1;
+      });
+      
+      currentChart = new Chart(ctxChart, {
+        type: 'pie',
+        data: {
+          labels: Object.keys(domains),
+          datasets: [{
+            data: Object.values(domains),
+            backgroundColor: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+    }
+  }
+
+  function setView(view) {
+    currentView = view;
+    btnViewTrack.classList.toggle('active', view === 'track');
+    btnViewBar.classList.toggle('active', view === 'bar');
+    btnViewPie.classList.toggle('active', view === 'pie');
+    renderCharts();
+  }
+
+  btnViewTrack.addEventListener('click', () => setView('track'));
+  btnViewBar.addEventListener('click', () => setView('bar'));
+  btnViewPie.addEventListener('click', () => setView('pie'));
+
   function render() {
     grid.innerHTML = '';
     if (students.length === 0) {
@@ -267,6 +355,7 @@
         .forEach(s => grid.appendChild(renderCard(s)));
     }
     renderTrack();
+    renderCharts();
     updateStats();
   }
 
