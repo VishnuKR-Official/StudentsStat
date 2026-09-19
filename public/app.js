@@ -466,8 +466,7 @@
     stepsToSuccessEl.innerHTML = '';
     
     // Build the staircase
-    const stepHeight = 15;
-    const bottomPadding = 20;
+    const stepHeight = 25; // taller for horizontal layout
     
     // Group students by level
     const byLevel = {};
@@ -476,22 +475,29 @@
       byLevel[s.level].push(s);
     });
 
-    for (let lvl = 1; lvl <= MAX_LEVEL; lvl++) {
-      const stepWidth = 100 - (lvl * 1.5); // Narrows as it goes up
+    for (let lvl = MAX_LEVEL; lvl >= 1; lvl--) { // Draw from top to bottom
       const stepEl = document.createElement('div');
-      stepEl.style.position = 'absolute';
-      stepEl.style.bottom = `${bottomPadding + (lvl * stepHeight)}px`;
-      stepEl.style.left = `calc(50% - ${stepWidth/2}%)`;
-      stepEl.style.width = `${stepWidth}%`;
+      stepEl.style.width = '100%';
       stepEl.style.height = `${stepHeight}px`;
       stepEl.style.backgroundColor = (lvl % 5 === 0) ? 'rgba(255, 0, 255, 0.2)' : 'rgba(0, 255, 204, 0.05)';
-      stepEl.style.borderTop = (lvl % 5 === 0) ? '1px solid rgba(255, 0, 255, 0.8)' : '1px solid rgba(0, 255, 204, 0.3)';
-      stepEl.style.boxShadow = '0 -2px 10px rgba(0, 255, 204, 0.2)';
+      stepEl.style.borderBottom = (lvl % 5 === 0) ? '1px solid rgba(255, 0, 255, 0.8)' : '1px solid rgba(0, 255, 204, 0.3)';
       stepEl.style.display = 'flex';
-      stepEl.style.justifyContent = 'center';
-      stepEl.style.alignItems = 'flex-end';
-      stepEl.style.gap = '4px';
+      stepEl.style.alignItems = 'center';
+      stepEl.style.paddingLeft = '10px';
       
+      const lbl = document.createElement('div');
+      lbl.textContent = `Lvl ${lvl}`;
+      lbl.style.width = '50px';
+      lbl.style.color = 'rgba(255,255,255,0.5)';
+      lbl.style.fontSize = '0.8rem';
+      stepEl.appendChild(lbl);
+      
+      const avatarContainer = document.createElement('div');
+      avatarContainer.style.display = 'flex';
+      avatarContainer.style.gap = '8px';
+      avatarContainer.style.flex = '1';
+      avatarContainer.style.alignItems = 'center';
+
       if (byLevel[lvl]) {
         byLevel[lvl].forEach(s => {
           const avatarHtml = s.avatar 
@@ -502,8 +508,6 @@
           avatar.style.borderRadius = '50%';
           avatar.style.boxShadow = `0 0 10px ${tierInfo(s.level).color}`;
           avatar.style.cursor = 'pointer';
-          avatar.style.position = 'relative';
-          avatar.style.top = '10px'; // sit slightly on top of the step
           avatar.innerHTML = avatarHtml;
           
           avatar.addEventListener('mouseenter', e => {
@@ -511,10 +515,11 @@
           });
           avatar.addEventListener('mouseleave', hideTooltip);
 
-          stepEl.appendChild(avatar);
+          avatarContainer.appendChild(avatar);
         });
       }
       
+      stepEl.appendChild(avatarContainer);
       stepsToSuccessEl.appendChild(stepEl);
     }
   }

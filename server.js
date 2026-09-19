@@ -8,6 +8,10 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const cloudinary = require('cloudinary').v2;
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-secret-key-123';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -126,6 +130,107 @@ function requireAdmin(req, res, next) {
 const app = express();
 app.use(express.json({ limit: '5mb' })); // generous, avatars are base64
 app.use(express.static(path.join(__dirname, 'public')));
+
+// --- AUTH MIDDLEWARE ---
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token == null) return res.sendStatus(401);
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+}
+function isAdmin(req, res, next) {
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Admin only'});
+  next();
+}
+
+// --- AUTH ROUTES ---
+app.post('/api/register', async (req, res) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password) return res.status(400).json({error: 'Missing fields'});
+  try {
+    const { rows } = await pool.query('SELECT * FROM students WHERE email = $1', [email]);
+    if (rows.length > 0) return res.status(400).json({error: 'Email already exists'});
+    
+    const hash = await bcrypt.hash(password, 10);
+    const id = crypto.randomUUID();
+    const now = Date.now();
+    
+    // First user is admin
+    const countRes = await pool.query('SELECT COUNT(*) FROM students');
+    const isFirst = parseInt(countRes.rows[0].count) === 0;
+    const role = isFirst ? 'admin' : 'student';
+
+    await pool.query(
+      `INSERT INTO students (id, name, email, password_hash, role, created_at, last_updated, last_level_up_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [id, name, email, hash, role, now, now, now]
+    );
+    res.json({ message: 'Registered successfully. Please login.' });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
+app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const { rows } = await pool.query('SELECT * FROM students WHERE email = $1', [email]);
+    if (rows.length === 0) return res.status(400).json({error: 'Invalid credentials'});
+    
+    const user = rows[0];
+    if (user.is_blocked) return res.status(403).json({error: 'Account blocked'});
+    
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match) return res.status(400).json({error: 'Invalid credentials'});
+    
+    const token = jwt.sign({ id: user.id, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ token, user: { id: user.id, name: user.name, role: user.role, level: user.level } });
+  } catch(err) {
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
+// Mock OTP storage (email -> {code, expires})
+const otpStore = new Map();
+
+app.post('/api/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  try {
+    const { rows } = await pool.query('SELECT * FROM students WHERE email = $1', [email]);
+    if (rows.length === 0) return res.status(400).json({error: 'Email not found'});
+    
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    otpStore.set(email, { code: otp, expires: Date.now() + 15 * 60000 });
+    
+    // In production, send via EmailJS or Nodemailer here
+    console.log(`\n--- OTP GENERATED FOR ${email}: ${otp} ---\n`);
+    
+    res.json({ message: 'OTP sent to email (check server console)' });
+  } catch(err) {
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
+app.post('/api/reset-password', async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+  const stored = otpStore.get(email);
+  if (!stored || stored.code !== otp || Date.now() > stored.expires) {
+    return res.status(400).json({error: 'Invalid or expired OTP'});
+  }
+  try {
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE students SET password_hash = $1 WHERE email = $2', [hash, email]);
+    otpStore.delete(email);
+    res.json({ message: 'Password reset successful' });
+  } catch(err) {
+    res.status(500).json({error: 'DB error'});
+  }
+});
 
 // Admin verification endpoint
 app.post('/api/admin/verify', (req, res) => {
@@ -382,13 +487,31 @@ async function initDb() {
         name            TEXT NOT NULL,
         level           INTEGER NOT NULL DEFAULT 1,
         description     TEXT NOT NULL DEFAULT '',
+        domain          TEXT NOT NULL DEFAULT '',
         avatar          TEXT,
         created_at      BIGINT NOT NULL,
         last_updated    BIGINT NOT NULL,
         last_level_up_at BIGINT NOT NULL,
-        history         JSONB NOT NULL DEFAULT '[]'::jsonb
+        history         JSONB NOT NULL DEFAULT '[]'::jsonb,
+        email           TEXT,
+        phone           TEXT,
+        github          TEXT,
+        linkedin        TEXT,
+        x_account       TEXT,
+        password_hash   TEXT,
+        role            TEXT DEFAULT 'student',
+        is_blocked      BOOLEAN DEFAULT false
       );
       CREATE INDEX IF NOT EXISTS students_level_idx ON students (level DESC);
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS domain TEXT NOT NULL DEFAULT '';
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS email TEXT;
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS phone TEXT;
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS github TEXT;
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS linkedin TEXT;
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS x_account TEXT;
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS password_hash TEXT;
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'student';
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT false;
       ALTER TABLE students ENABLE ROW LEVEL SECURITY;
       
       CREATE TABLE IF NOT EXISTS delete_requests (

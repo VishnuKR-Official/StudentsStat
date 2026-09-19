@@ -37,6 +37,7 @@ This app eliminates all that confusion! It gives our entire batch a single, shar
 ## 🛠️ Tech Stack
 
 - **Frontend**: Pure HTML5, CSS3, Vanilla JavaScript.
+- **Profile Pictures & Media**: All student profile pictures are uploaded directly to **Cloudinary**. We use Cloudinary's secure API to handle image storage, compression, and delivery, keeping our database lightweight.
 - **Backend**: Node.js + Express.js.
 - **Database**: PostgreSQL hosted on [Supabase](https://supabase.com).
 - **Hosting**: Hosted for free on [Render.com](https://render.com).

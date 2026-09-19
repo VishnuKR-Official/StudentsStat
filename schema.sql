@@ -11,7 +11,15 @@ create table if not exists students (
   created_at      bigint not null,               -- epoch ms, matches old JSON store
   last_updated    bigint not null,
   last_level_up_at bigint not null,
-  history         jsonb not null default '[]'::jsonb
+  history         jsonb not null default '[]'::jsonb,
+  email           text,
+  phone           text,
+  github          text,
+  linkedin        text,
+  x_account       text,
+  password_hash   text,
+  role            text default 'student',
+  is_blocked      boolean default false
 );
 
 -- Speeds up the leaderboard sort (ORDER BY level DESC) once you have more students
