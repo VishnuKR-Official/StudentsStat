@@ -259,20 +259,10 @@ app.get('/api/students', async (req, res) => {
   }
 });
 
-// Helper to verify user or admin
-async function verifyUserOrAdmin(req, id) {
-  // If admin passcode provided, bypass
-  const adminPasscode = req.headers['x-admin-passcode'];
-  if (adminPasscode === ADMIN_PASSWORD) return true;
-  
-  // Otherwise verify user's password
-  const { password } = req.body || {};
-  if (!password) return false;
-  
-  const { rows } = await pool.query('SELECT password_hash FROM students WHERE id = $1', [id]);
-  if (!rows[0] || !rows[0].password_hash) return false;
-  
-  return await bcrypt.compare(password, rows[0].password_hash);
+// Helper to verify user or admin using JWT payload
+function verifyUserOwnershipOrAdmin(req, id) {
+  if (!req.user) return false;
+  return req.user.role === 'admin' || req.user.id === id;
 }
 
 // Create a student
@@ -317,10 +307,11 @@ app.post('/api/students', async (req, res) => {
 });
 
 // Update a student (name / level / description / domain / avatar)
-app.patch('/api/students/:id', async (req, res) => {
+app.patch('/api/students/:id', authenticateToken, async (req, res) => {
   try {
-    const isAuth = await verifyUserOrAdmin(req, req.params.id);
-    if (!isAuth) return res.status(401).json({ error: 'Unauthorized: Admin passcode or correct password required' });
+    if (!verifyUserOwnershipOrAdmin(req, req.params.id)) {
+      return res.status(403).json({ error: 'Unauthorized: You can only edit your own profile' });
+    }
 
     const { rows } = await pool.query('SELECT * FROM students WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'not found' });
@@ -367,10 +358,11 @@ app.patch('/api/students/:id', async (req, res) => {
 });
 
 // Bump level up/down by 1 (used by the +/- buttons)
-app.post('/api/students/:id/bump', async (req, res) => {
+app.post('/api/students/:id/bump', authenticateToken, async (req, res) => {
   try {
-    const isAuth = await verifyUserOrAdmin(req, req.params.id);
-    if (!isAuth) return res.status(401).json({ error: 'Unauthorized: Admin passcode or correct password required' });
+    if (!verifyUserOwnershipOrAdmin(req, req.params.id)) {
+      return res.status(403).json({ error: 'Unauthorized: You can only edit your own profile' });
+    }
 
     const { rows } = await pool.query('SELECT * FROM students WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'not found' });
@@ -401,10 +393,11 @@ app.post('/api/students/:id/bump', async (req, res) => {
 });
 
 // Delete a student
-app.delete('/api/students/:id', async (req, res) => {
+app.delete('/api/students/:id', authenticateToken, async (req, res) => {
   try {
-    const isAuth = await verifyUserOrAdmin(req, req.params.id);
-    if (!isAuth) return res.status(401).json({ error: 'Unauthorized: Admin passcode or correct password required' });
+    if (!verifyUserOwnershipOrAdmin(req, req.params.id)) {
+      return res.status(403).json({ error: 'Unauthorized: You can only delete your own profile' });
+    }
 
     await pool.query('DELETE FROM delete_requests WHERE student_id = $1', [req.params.id]);
     const result = await pool.query('DELETE FROM students WHERE id = $1', [req.params.id]);

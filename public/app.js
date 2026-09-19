@@ -85,8 +85,10 @@
   let students = [];
   let editingId = null;
   let pendingAvatar = null;
-  let prevPositions = {}; // id -> {level, weeksStale} from the last render, to detect "just snapped back"
-  let adminPasscode = sessionStorage.getItem('adminPasscode') || null;
+  let prevPositions = {};
+  
+  let authToken = localStorage.getItem('authToken') || null;
+  let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
 
   const grid = document.getElementById('grid');
   const emptyState = document.getElementById('emptyState');
@@ -95,10 +97,22 @@
   const footerNote = document.getElementById('footerNote');
   const trackEl = document.getElementById('track');
   const tooltip = document.getElementById('tooltip');
-  const adminModal = document.getElementById('adminModal');
-  const btnAdminToggle = document.getElementById('btnAdminToggle');
-  const adminPassInput = document.getElementById('adminPassInput');
   const taglineEl = document.getElementById('motivationalTagline');
+  
+  // Auth UI
+  const btnJoinRace = document.getElementById('btnJoinRace');
+  const btnLoginToggle = document.getElementById('btnLoginToggle');
+  const btnLogout = document.getElementById('btnLogout');
+  const authModal = document.getElementById('authModal');
+  const authToggleMode = document.getElementById('authToggleMode');
+  const authSubmit = document.getElementById('authSubmit');
+  const authCancel = document.getElementById('authCancel');
+  const authEmail = document.getElementById('authEmail');
+  const authPassword = document.getElementById('authPassword');
+  const authName = document.getElementById('authName');
+  const authNameField = document.getElementById('authNameField');
+
+  let authMode = 'login'; // 'login' or 'register'
   
   // Chart Elements
   const btnViewTrack = document.getElementById('btnViewTrack');
@@ -117,7 +131,7 @@
   const ctxChart = document.getElementById('statsChart').getContext('2d');
   
   let currentChart = null;
-  let currentView = 'track'; // 'track', 'race', 'steps', 'bar', 'pie', 'trend'
+  let currentView = 'track';
 
   const taglines = [
     "Learning is a journey, not a destination.",
@@ -138,25 +152,21 @@
   updateTagline();
   setInterval(updateTagline, 10 * 60 * 1000);
 
-  function updateAdminUI() {
-    if (adminPasscode) {
-      btnAdminToggle.className = 'admin-badge unlocked';
-      btnAdminToggle.textContent = '🔓 Admin Unlocked';
+  function updateAuthUI() {
+    if (authToken && currentUser) {
+      btnLoginToggle.style.display = 'none';
+      btnLogout.style.display = 'inline-block';
+      const userHasProfile = students.some(s => s.id === currentUser.id || s.email === currentUser.email);
+      if (userHasProfile) {
+        btnJoinRace.style.display = 'none';
+      } else {
+        btnJoinRace.style.display = 'inline-block';
+      }
     } else {
-      btnAdminToggle.className = 'admin-badge locked';
-      btnAdminToggle.textContent = '🔒 Public View (Locked)';
+      btnLoginToggle.style.display = 'inline-block';
+      btnLogout.style.display = 'none';
+      btnJoinRace.style.display = 'none';
     }
-  }
-
-  function promptAdminUnlock(onSuccess) {
-    adminModal.classList.add('open');
-    adminPassInput.value = '';
-    adminPassInput.focus();
-    window._adminSuccessCb = onSuccess;
-  }
-  function closeAdminModal() {
-    adminModal.classList.remove('open');
-    window._adminSuccessCb = null;
   }
 
   function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
@@ -182,16 +192,20 @@
 
   async function api(path, opts = {}) {
     opts.headers = opts.headers || {};
-    if (adminPasscode) {
-      opts.headers['x-admin-passcode'] = adminPasscode;
+    if (authToken) {
+      opts.headers['Authorization'] = 'Bearer ' + authToken;
     }
     const res = await fetch(path, opts);
-    if (res.status === 401) {
-      adminPasscode = null;
-      sessionStorage.removeItem('adminPasscode');
-      updateAdminUI();
-      promptAdminUnlock();
-      throw new Error('Admin passcode required');
+    if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
+        // Token expired or invalid
+        authToken = null;
+        currentUser = null;
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        updateAuthUI();
+      }
+      throw new Error('Unauthorized');
     }
     if (!res.ok) {
       let msg = 'Request failed';
@@ -204,11 +218,11 @@
 
   async function loadStudents() {
     students = await api(API);
+    updateAuthUI();
     render();
   }
 
   async function init() {
-    updateAdminUI();
     try {
       await loadStudents();
       modeBadge.textContent = 'Connected — changes save to the server';
@@ -219,6 +233,98 @@
       footerNote.textContent = 'Check that the Rank Board server is running.';
     }
   }
+
+  // Auth Handlers
+  btnLoginToggle.addEventListener('click', () => {
+    authMode = 'login';
+    authModal.classList.add('open');
+    authNameField.style.display = 'none';
+    authToggleMode.textContent = 'Need an account? Register';
+    authSubmit.textContent = 'Login';
+    authEmail.focus();
+  });
+  
+  authCancel.addEventListener('click', () => authModal.classList.remove('open'));
+  
+  authToggleMode.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (authMode === 'login') {
+      authMode = 'register';
+      authNameField.style.display = 'block';
+      authToggleMode.textContent = 'Have an account? Login';
+      authSubmit.textContent = 'Register';
+    } else {
+      authMode = 'login';
+      authNameField.style.display = 'none';
+      authToggleMode.textContent = 'Need an account? Register';
+      authSubmit.textContent = 'Login';
+    }
+  });
+
+  authSubmit.addEventListener('click', async () => {
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    if (!email || !password) return alert('Email and Password required');
+
+    try {
+      if (authMode === 'register') {
+        const name = authName.value.trim();
+        if (!name) return alert('Name required');
+        
+        // Register creates a student directly in this simplified flow
+        await api('/api/students', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name, level: 1 })
+        });
+        
+        // Auto-login after register
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        if (!res.ok) throw new Error('Auto-login failed');
+        const data = await res.json();
+        authToken = data.token;
+        currentUser = data.user;
+        localStorage.setItem('authToken', authToken);
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        
+      } else {
+        // Login
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        if (!res.ok) {
+          const j = await res.json();
+          throw new Error(j.error || 'Login failed');
+        }
+        const data = await res.json();
+        authToken = data.token;
+        currentUser = data.user;
+        localStorage.setItem('authToken', authToken);
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      }
+      authModal.classList.remove('open');
+      authEmail.value = '';
+      authPassword.value = '';
+      await loadStudents();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  });
+
+  btnLogout.addEventListener('click', () => {
+    authToken = null;
+    currentUser = null;
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('currentUser');
+    updateAuthUI();
+    render();
+  });
 
   function updateStats() {
     document.getElementById('statCount').textContent = students.length;
@@ -318,6 +424,8 @@
       const thresh = (i + 1) * 4;
       segs += `<i class="${s.level >= thresh ? 'on' : ''}"></i>`;
     }
+    let canEdit = currentUser && (currentUser.role === 'admin' || currentUser.id === s.id);
+    
     card.innerHTML = `
       <div class="card-top">
         <div class="avatar" data-role="avatar">${s.avatar ? `<img src="${s.avatar}" alt="${escapeHtml(s.name)}">` : initials(s.name)}</div>
@@ -334,6 +442,7 @@
       <div class="bar-outer"><div class="bar-inner" style="width:${pct}%"></div></div>
       <div class="segments">${segs}</div>
       <div class="desc-line">${s.description ? escapeHtml(s.description) : ''}</div>
+      ${canEdit ? `
       <div class="card-controls">
         <div class="lvl-btns">
           <button data-act="dec" title="Level down">−</button>
@@ -344,15 +453,18 @@
           <button class="small danger" data-act="delete">Delete</button>
         </div>
       </div>
+      ` : ''}
     `;
     const avatarEl = card.querySelector('[data-role="avatar"]');
     avatarEl.addEventListener('mouseenter', () => showTooltip(avatarEl, s));
     avatarEl.addEventListener('mouseleave', hideTooltip);
 
-    card.querySelector('[data-act="inc"]').addEventListener('click', () => bump(s.id, 'up'));
-    card.querySelector('[data-act="dec"]').addEventListener('click', () => bump(s.id, 'down'));
-    card.querySelector('[data-act="delete"]').addEventListener('click', () => removeStudent(s));
-    card.querySelector('[data-act="edit"]').addEventListener('click', () => openPanel(s));
+    if (canEdit) {
+      card.querySelector('[data-act="inc"]').addEventListener('click', () => bump(s.id, 'up'));
+      card.querySelector('[data-act="dec"]').addEventListener('click', () => bump(s.id, 'down'));
+      card.querySelector('[data-act="delete"]').addEventListener('click', () => removeStudent(s));
+      card.querySelector('[data-act="edit"]').addEventListener('click', () => openPanel(s));
+    }
     return card;
   }
 
@@ -715,16 +827,11 @@
   }
 
   async function bump(id, dir) {
-    let password = null;
-    if (!adminPasscode) {
-      password = prompt("Enter your password to change level:");
-      if (!password) return;
-    }
     try {
       const updated = await api(`${API}/${id}/bump`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dir, password })
+        body: JSON.stringify({ dir })
       });
       students = students.map(s => s.id === id ? updated : s);
       render();
@@ -732,19 +839,10 @@
   }
 
   async function removeStudent(s) {
-    let password = null;
-    if (!adminPasscode) {
-      password = prompt(`Enter your password to delete ${s.name}:`);
-      if (!password) return;
-    }
-    
     if (!confirm(`Are you sure you want to permanently delete ${s.name}?`)) return;
-    
     try {
       await api(`${API}/${s.id}`, { 
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
+        method: 'DELETE'
       });
       students = students.filter(x => x.id !== s.id);
       delete prevPositions[s.id];
@@ -775,23 +873,19 @@
   const avatarPicker = document.getElementById('avatarPicker');
   const avatarFile = document.getElementById('avatarFile');
   const fName = document.getElementById('fName');
-  const fEmail = document.getElementById('fEmail');
-  const fPassword = document.getElementById('fPassword');
   const fLevel = document.getElementById('fLevel');
   const fDomain = document.getElementById('fDomain');
   const fDesc = document.getElementById('fDesc');
 
   function openPanel(existing) {
-    editingId = existing ? existing.id : null;
-    panelTitle.textContent = existing ? 'Edit student' : 'New student';
-    fName.value = existing ? existing.name : '';
-    fEmail.value = existing ? (existing.email || '') : '';
-    fEmail.disabled = !!existing; // Can't change email easily right now
-    fPassword.value = '';
-    fLevel.value = existing ? existing.level : 1;
-    fDomain.value = existing ? (existing.domain || '') : '';
-    fDesc.value = existing ? (existing.description || '') : '';
-    pendingAvatar = existing ? (existing.avatar || null) : null;
+    if (!existing) return; // Edit panel is now strictly for updating existing profiles
+    editingId = existing.id;
+    panelTitle.textContent = 'Edit Profile';
+    fName.value = existing.name;
+    fLevel.value = existing.level;
+    fDomain.value = existing.domain || '';
+    fDesc.value = existing.description || '';
+    pendingAvatar = existing.avatar || null;
     avatarPicker.innerHTML = pendingAvatar ? `<img src="${pendingAvatar}" alt="">` : 'Photo';
     editPanel.classList.add('open');
     fName.focus();
@@ -799,12 +893,21 @@
   function closePanel() {
     editPanel.classList.remove('open');
     editingId = null; pendingAvatar = null;
-    fName.value = ''; fEmail.value = ''; fPassword.value = ''; fLevel.value = 1; fDesc.value = ''; fDomain.value = '';
+    fName.value = ''; fLevel.value = 1; fDesc.value = ''; fDomain.value = '';
     avatarPicker.innerHTML = 'Photo';
   }
-  document.getElementById('btnToggleAdd').addEventListener('click', () => {
-    editPanel.classList.contains('open') ? closePanel() : openPanel(null);
-  });
+  
+  if (btnJoinRace) {
+    btnJoinRace.addEventListener('click', () => {
+      authMode = 'register';
+      authModal.classList.add('open');
+      authNameField.style.display = 'block';
+      authToggleMode.textContent = 'Have an account? Login';
+      authSubmit.textContent = 'Join Race (Register)';
+      authEmail.focus();
+    });
+  }
+
   document.getElementById('btnCancel').addEventListener('click', closePanel);
   avatarPicker.addEventListener('click', () => avatarFile.click());
   avatarFile.addEventListener('change', (e) => {
@@ -815,38 +918,22 @@
   document.getElementById('btnSave').addEventListener('click', async () => {
     const name = fName.value.trim();
     if (!name) { fName.focus(); return; }
-    const email = fEmail.value.trim();
-    const password = fPassword.value.trim();
     
-    if (!editingId && (!email || !password)) {
-      alert("Email and Password are required to create a user!");
-      return;
-    }
-    if (editingId && !password && !adminPasscode) {
-      alert("Password is required to edit your profile!");
-      return;
-    }
-
     let lvl = parseInt(fLevel.value, 10);
     if (isNaN(lvl)) lvl = 1;
     lvl = Math.min(MAX_LEVEL, Math.max(1, lvl));
     const domain = fDomain.value.trim();
     const description = fDesc.value.trim();
-    const payload = { name, email, password, level: lvl, description, domain, avatar: pendingAvatar };
+    const payload = { name, level: lvl, description, domain, avatar: pendingAvatar };
+    
     try {
       if (editingId) {
         const updated = await api(`${API}/${editingId}`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
         students = students.map(s => s.id === editingId ? updated : s);
-      } else {
-        const created = await api(API, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-        });
-        students.push(created);
-        if (!adminPasscode) localStorage.setItem('hasCreatedProfile', 'true');
+        closePanel(); render();
       }
-      closePanel(); render();
     } catch (e) { alert('Could not save: ' + e.message); }
   });
   fName.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('btnSave').click(); });
