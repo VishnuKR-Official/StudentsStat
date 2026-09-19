@@ -271,12 +271,16 @@
         const name = authName.value.trim();
         if (!name) return alert('Name required');
         
-        // Register creates a student directly in this simplified flow
-        await api('/api/students', {
+        // Use the proper register endpoint so it checks for dupes and sets 'admin' for the first user
+        const regRes = await fetch('/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, name, level: 1 })
+          body: JSON.stringify({ email, password, name })
         });
+        if (!regRes.ok) {
+          const j = await regRes.json();
+          throw new Error(j.error || 'Registration failed');
+        }
         
         // Auto-login after register
         const res = await fetch('/api/login', {
