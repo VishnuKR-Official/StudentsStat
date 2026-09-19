@@ -184,6 +184,34 @@
     messageModal.classList.add('open');
   }
 
+  const confirmModal = document.getElementById('confirmModal');
+  const confirmTitle = document.getElementById('confirmTitle');
+  const confirmMessage = document.getElementById('confirmMessage');
+  const btnConfirmNo = document.getElementById('btnConfirmNo');
+  const btnConfirmYes = document.getElementById('btnConfirmYes');
+
+  function askConfirm(title, text) {
+    return new Promise(resolve => {
+      confirmTitle.textContent = title;
+      confirmMessage.textContent = text;
+      confirmModal.classList.add('open');
+
+      const handleYes = () => { cleanup(); resolve(true); };
+      const handleNo = () => { cleanup(); resolve(false); };
+
+      const cleanup = () => {
+        confirmModal.classList.remove('open');
+        btnConfirmYes.removeEventListener('click', handleYes);
+        btnConfirmNo.removeEventListener('click', handleNo);
+      };
+
+      btnConfirmYes.addEventListener('click', handleYes);
+      btnConfirmNo.addEventListener('click', handleNo);
+    });
+  }
+
+  const btnLeaveBatch = document.getElementById('btnLeaveBatch');
+
   function updateAuthUI() {
     // Reset displays
     btnLoginToggle.style.display = 'inline-block';
@@ -191,6 +219,7 @@
     btnJoinRace.style.display = 'none';
     btnInviteCode.style.display = 'none';
     btnManageApprovals.style.display = 'none';
+    if (btnLeaveBatch) btnLeaveBatch.style.display = 'none';
     batchSetupModal.classList.remove('open');
     if (adminBadge) adminBadge.style.display = 'none';
     
@@ -206,6 +235,7 @@
       } else if (currentUser.batch_status === 'approved') {
         batchSetupModal.classList.remove('open');
         btnInviteCode.style.display = 'inline-block';
+        if (btnLeaveBatch) btnLeaveBatch.style.display = 'inline-block';
         
         if (currentUser.role === 'admin') {
           if (adminBadge) adminBadge.style.display = 'inline-block';
@@ -568,25 +598,25 @@
       const roleBtn = card.querySelector('[data-act="role"]');
       if (roleBtn) {
         roleBtn.addEventListener('click', async () => {
-          if (!confirm(`Are you sure you want to ${s.role === 'admin' ? 'revoke' : 'grant'} admin privileges for ${s.name}?`)) return;
+          if (!(await askConfirm('Change Role', `Are you sure you want to ${s.role === 'admin' ? 'revoke' : 'grant'} admin privileges for ${s.name}?`))) return;
           try {
             await api(`/api/students/${s.id}/role`, {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ role: s.role === 'admin' ? 'student' : 'admin' })
             });
             loadStudents();
-          } catch(e) { alert(e.message); }
+          } catch(e) { showMessage('Error', e.message); }
         });
       }
 
       const blockBtn = card.querySelector('[data-act="block"]');
       if (blockBtn) {
         blockBtn.addEventListener('click', async () => {
-          if (!confirm(`Are you sure you want to permanently block ${s.name}? They will be removed from this batch and cannot join again.`)) return;
+          if (!(await askConfirm('Block User', `Are you sure you want to permanently block ${s.name}? They will be removed from this batch and cannot join again.`))) return;
           try {
             await api(`/api/students/${s.id}/block`, { method: 'POST' });
             loadStudents();
-          } catch(e) { alert(e.message); }
+          } catch(e) { showMessage('Error', e.message); }
         });
       }
     }
@@ -960,19 +990,28 @@
       });
       students = students.map(s => s.id === id ? updated : s);
       render();
-    } catch (e) { alert('Could not update level: ' + e.message); }
+    } catch (e) { showMessage('Could not update level', e.message); }
   }
 
   async function removeStudent(s) {
-    if (!confirm(`Are you sure you want to permanently delete ${s.name}?`)) return;
+    if (!(await askConfirm('Delete User', `Are you sure you want to permanently delete ${s.name}?`))) return;
     try {
       await api(`${API}/${s.id}`, { 
         method: 'DELETE'
       });
+      if (currentUser && currentUser.id === s.id) {
+        // If the user deleted themselves, log them out.
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        authToken = null;
+        currentUser = null;
+        updateAuthUI();
+        window.location.reload();
+        return;
+      }
       students = students.filter(x => x.id !== s.id);
-      delete prevPositions[s.id];
       render();
-    } catch (e) { alert('Could not delete: ' + e.message); }
+    } catch (e) { showMessage('Could not delete', e.message); }
   }
 
   function fileToDataUrl(file, cb) {

@@ -10,6 +10,8 @@ const { Pool } = require('pg');
 const cloudinary = require('cloudinary').v2;
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-secret-key-123';
 
@@ -129,6 +131,10 @@ function requireAdmin(req, res, next) {
 
 // ---- app ---------------------------------------------------------------
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: "*" }
+});
 app.use(express.json({ limit: '5mb' })); // generous, avatars are base64
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -409,7 +415,17 @@ app.post('/api/students/:id/block', authenticateToken, async (req, res) => {
       return res.status(400).json({error: 'Cannot block yourself'});
     }
     
-    await pool.query('UPDATE students SET is_blocked = true, batch_id = NULL, batch_status = NULL WHERE id = $1', [req.params.id]);
+    await pool.query('UPDATE students SET is_blocked = true, batch_id = NULL, batch_status = NULL, role = $2 WHERE id = $1', [req.params.id, 'student']);
+    res.json({ success: true });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
+app.post('/api/batches/leave', authenticateToken, async (req, res) => {
+  try {
+    await pool.query('UPDATE students SET batch_id = NULL, batch_status = NULL, role = $2 WHERE id = $1', [req.user.id, 'student']);
     res.json({ success: true });
   } catch(err) {
     console.error(err);
@@ -683,6 +699,74 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// --- SOCKET.IO ---
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) return next(new Error('Authentication error'));
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return next(new Error('Authentication error'));
+    socket.user = user;
+    next();
+  });
+});
+
+io.on('connection', (socket) => {
+  const user = socket.user;
+  if (!user.batch_id) {
+    socket.disconnect();
+    return;
+  }
+
+  // Join the user's specific batch room
+  socket.join(`batch_${user.batch_id}`);
+  // Join the user's personal room for direct messages
+  socket.join(`user_${user.id}`);
+
+  // Fetch recent messages
+  socket.on('fetch_messages', async (data) => {
+    try {
+      const { rows } = await pool.query(
+        `SELECT * FROM messages WHERE batch_id = $1 AND created_at > $2 ORDER BY created_at ASC`, 
+        [user.batch_id, Date.now() - 86400000]
+      );
+      // Filter out DMs not meant for this user
+      const visible = rows.filter(m => !m.receiver_id || m.receiver_id === user.id || m.sender_id === user.id);
+      socket.emit('recent_messages', visible);
+    } catch(err) {
+      console.error('Socket DB error', err);
+    }
+  });
+
+  // Handle new message
+  socket.on('send_message', async (data) => {
+    try {
+      const { content, receiver_id } = data;
+      if (!content || !content.trim()) return;
+      
+      const now = Date.now();
+      const result = await pool.query(
+        `INSERT INTO messages (sender_id, receiver_id, batch_id, content, created_at)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [user.id, receiver_id || null, user.batch_id, content.trim(), now]
+      );
+      
+      const msg = result.rows[0];
+      
+      if (receiver_id) {
+        // Direct message
+        io.to(`user_${receiver_id}`).emit('new_message', msg);
+        // Echo back to sender
+        socket.emit('new_message', msg);
+      } else {
+        // Group message
+        io.to(`batch_${user.batch_id}`).emit('new_message', msg);
+      }
+    } catch(err) {
+      console.error('Socket DB error', err);
+    }
+  });
+});
+
 // Auto-initialize schema on startup
 async function initDb() {
   if (!pool) return;
@@ -730,19 +814,31 @@ async function initDb() {
         created_at      BIGINT NOT NULL
       );
       
+      CREATE TABLE IF NOT EXISTS messages (
+        id              SERIAL PRIMARY KEY,
+        sender_id       TEXT NOT NULL,
+        receiver_id     TEXT,
+        batch_id        TEXT NOT NULL,
+        content         TEXT NOT NULL,
+        created_at      BIGINT NOT NULL
+      );
+      
       CREATE TABLE IF NOT EXISTS delete_requests (
         id              SERIAL PRIMARY KEY,
         student_id      TEXT NOT NULL,
         requested_at    BIGINT NOT NULL
       );
     `);
+    
+    // Auto-cleanup ephemeral messages older than 24 hours (86400000 ms)
+    await pool.query(`DELETE FROM messages WHERE created_at < $1`, [Date.now() - 86400000]);
     console.log('✓ Database schema verified/initialized (students table & index ready).');
   } catch (err) {
     console.warn('Note on DB init check:', err.message);
   }
 }
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Rank Board running at http://localhost:${PORT}`);
   initDb();
 });

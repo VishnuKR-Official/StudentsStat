@@ -194,3 +194,53 @@ footer{max-width:1080px;margin:40px auto 0;color:var(--muted);font-size:0.78rem;
 .admin-badge.locked { background: rgba(225, 99, 122, 0.15); color: var(--rose); border: 1px solid var(--rose); }
 .admin-badge.unlocked { background: rgba(62, 214, 160, 0.15); color: var(--teal); border: 1px solid var(--teal); }
 
+/* Chat Sidebar */
+.chat-sidebar {
+  position: fixed; top: 0; right: -350px; width: 350px; height: 100vh;
+  background: var(--panel); border-left: 1px solid var(--line);
+  box-shadow: -10px 0 30px rgba(0,0,0,0.5); z-index: 101;
+  display: flex; flex-direction: column; transition: right 0.3s ease;
+}
+.chat-sidebar.open { right: 0; }
+.chat-header {
+  padding: 16px; border-bottom: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.chat-tabs { display: flex; border-bottom: 1px solid var(--line); }
+.chat-tab {
+  flex: 1; padding: 12px; text-align: center; background: none; border: none;
+  color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; font-weight: 600;
+}
+.chat-tab.active { color: var(--gold); border-bottom: 2px solid var(--gold); }
+.chat-view { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+.chat-view.active { display: flex; }
+.chat-messages {
+  flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px;
+}
+.chat-msg {
+  background: var(--panel-hi); padding: 10px 14px; border-radius: 12px; max-width: 85%;
+  font-size: 0.9rem; line-height: 1.4; align-self: flex-start;
+}
+.chat-msg.mine { background: var(--teal); color: #000; align-self: flex-end; }
+.chat-msg-author { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; font-weight: bold; }
+.chat-msg.mine .chat-msg-author { display: none; }
+.chat-input-area {
+  padding: 15px; border-top: 1px solid var(--line); display: flex; gap: 8px;
+}
+.chat-input-area input {
+  flex: 1; background: var(--bg); border: 1px solid var(--line); color: var(--text);
+  border-radius: 20px; padding: 8px 15px; outline: none; font-size: 0.9rem;
+}
+
+.floating-chat-btn {
+  position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
+  border-radius: 50%; background: var(--gold); color: #000; font-size: 1.5rem;
+  border: none; box-shadow: 0 5px 15px rgba(231,183,64,0.4); cursor: pointer;
+  z-index: 100; transition: transform 0.2s; display: flex; align-items: center; justify-content: center;
+}
+.floating-chat-btn:hover { transform: scale(1.1); }
+.badge {
+  position: absolute; top: -5px; right: -5px; background: var(--rose); color: #fff;
+  font-size: 0.75rem; font-weight: bold; width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}

@@ -8,7 +8,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css?v=2">
+<link rel="stylesheet" href="/styles.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#161D2E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230E1320'/%3E%3Ctext y='60' x='50' font-size='40' fill='%23E7B740' text-anchor='middle'%3ER%3C/text%3E%3C/svg%3E">
 </head>
 <body>
 <canvas id="bgCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1;"></canvas>
@@ -37,6 +40,7 @@
     <button class="ghost small" id="btnManageApprovals" style="display:none;">👥 Approvals</button>
     
     <span id="adminBadge" style="display:none; color:var(--gold); font-weight:bold; margin-right:15px; margin-left:15px;">👑 Admin</span>
+    <button class="ghost small" id="btnLeaveBatch" style="display:none; color: var(--neon-red); border-color: var(--neon-red);">Leave Batch</button>
     <button class="ghost small" id="btnLogout" style="display:none;">Logout</button>
     
     <!-- Hide export/import for now to clean up UI, or leave them for global admin? Let's leave them but hidden unless admin -->
@@ -213,8 +217,65 @@
   <div class="t-desc" id="ttDesc"></div>
 </div>
 
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <h3 id="confirmTitle">Confirm</h3>
+    <p id="confirmMessage" style="color:var(--color-text-muted); margin-bottom:15px;"></p>
+    <div style="display:flex; justify-content:flex-end; gap:10px;">
+      <button class="ghost" id="btnConfirmNo">Cancel</button>
+      <button class="primary" id="btnConfirmYes">Yes</button>
+    </div>
+  </div>
+</div>
 
+<!-- Chat Sidebar -->
+<div id="chatSidebar" class="chat-sidebar" style="display:none;">
+  <div class="chat-header">
+    <h3 style="margin:0; font-size: 1.1rem; text-shadow: 0 0 5px var(--neon-cyan);">Live Comm</h3>
+    <button id="btnCloseChat" class="ghost small">✕</button>
+  </div>
+  <div class="chat-tabs">
+    <button class="chat-tab active" id="tabGroupChat">Batch</button>
+    <button class="chat-tab" id="tabDMs">DMs <span id="dmBadge" class="badge" style="display:none;">0</span></button>
+  </div>
+  
+  <div id="groupChatView" class="chat-view active">
+    <div class="chat-messages" id="groupMessages"></div>
+    <div class="chat-input-area">
+      <input type="text" id="groupMsgInput" placeholder="Message everyone..." autocomplete="off">
+      <button id="btnSendGroup" class="primary small">Send</button>
+    </div>
+  </div>
+  
+  <div id="dmChatView" class="chat-view">
+    <div id="dmUserSelect" style="padding: 10px; border-bottom: 1px solid var(--border-color);">
+      <select id="dmRecipientSelect" style="width: 100%; padding: 5px; background: var(--color-bg); color: var(--color-text); border: 1px solid var(--neon-cyan); border-radius: 4px;">
+        <option value="">Select a user...</option>
+      </select>
+    </div>
+    <div class="chat-messages" id="dmMessages"></div>
+    <div class="chat-input-area">
+      <input type="text" id="dmMsgInput" placeholder="Direct message..." autocomplete="off" disabled>
+      <button id="btnSendDm" class="primary small" disabled>Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chat Toggle Button (Floating) -->
+<button id="btnToggleChat" class="floating-chat-btn" style="display:none;">
+  💬 <span id="globalChatBadge" class="badge" style="display:none;">0</span>
+</button>
+
+<script src="/socket.io/socket.io.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="/app.js?v=2"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW ref fail', err));
+    });
+  }
+</script>
 </body>
 </html>
