@@ -1098,7 +1098,7 @@
         students = students.map(s => s.id === editingId ? updated : s);
         closePanel(); render();
       }
-    } catch (e) { alert('Could not save: ' + e.message); }
+    } catch (e) { showMessage('Error', e.message); }
   });
   fName.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('btnSave').click(); });
 
@@ -1114,16 +1114,36 @@
       try {
         const data = JSON.parse(ev.target.result);
         if (!Array.isArray(data)) throw new Error('bad format');
-        const merge = confirm('Merge with current students? Cancel to replace the board entirely.');
+        const merge = await askConfirm('Import Option', 'Merge with current students? Cancel to replace the board entirely.');
         students = await api(`/api/import?mode=${merge ? 'merge' : 'replace'}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
         });
         render();
-      } catch (err) { alert('That file could not be imported: ' + err.message); }
+      } catch (err) { showMessage('Import Error', 'That file could not be imported: ' + err.message); }
     };
     reader.readAsText(file);
     importFile.value = '';
   });
+
+  const btnLeaveBatch = document.getElementById('btnLeaveBatch');
+  if (btnLeaveBatch) {
+    btnLeaveBatch.addEventListener('click', async () => {
+      if (!(await askConfirm('Leave Batch', 'Are you sure you want to leave this batch?'))) return;
+      try {
+        await api('/api/batches/leave', { method: 'POST' });
+        currentUser.batch_id = null;
+        currentUser.batch_status = null;
+        currentUser.batch_name = null;
+        currentUser.role = 'student';
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        students = [];
+        updateAuthUI();
+        render();
+      } catch(e) {
+        showMessage('Error', e.message);
+      }
+    });
+  }
 
 
   // Batch Event Listeners
