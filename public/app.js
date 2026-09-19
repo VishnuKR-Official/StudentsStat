@@ -356,6 +356,42 @@
     return card;
   }
 
+  // --- Custom Tooltip ---
+  let tooltipEl = null;
+  function showTooltip(e, content) {
+    if (!tooltipEl) {
+      tooltipEl = document.createElement('div');
+      tooltipEl.style.position = 'absolute';
+      tooltipEl.style.background = 'rgba(0, 0, 0, 0.85)';
+      tooltipEl.style.color = '#fff';
+      tooltipEl.style.padding = '8px 12px';
+      tooltipEl.style.borderRadius = '6px';
+      tooltipEl.style.border = '1px solid rgba(0, 255, 204, 0.4)';
+      tooltipEl.style.boxShadow = '0 0 10px rgba(0, 255, 204, 0.2)';
+      tooltipEl.style.pointerEvents = 'none';
+      tooltipEl.style.zIndex = '9999';
+      tooltipEl.style.fontSize = '0.85rem';
+      tooltipEl.style.display = 'flex';
+      tooltipEl.style.alignItems = 'center';
+      tooltipEl.style.gap = '10px';
+      document.body.appendChild(tooltipEl);
+    }
+    tooltipEl.innerHTML = content;
+    tooltipEl.style.display = 'flex';
+    tooltipEl.style.left = (e.pageX + 15) + 'px';
+    tooltipEl.style.top = (e.pageY + 15) + 'px';
+  }
+  function hideTooltip() {
+    if (tooltipEl) tooltipEl.style.display = 'none';
+  }
+  document.addEventListener('mousemove', e => {
+    if (tooltipEl && tooltipEl.style.display !== 'none') {
+      tooltipEl.style.left = (e.pageX + 15) + 'px';
+      tooltipEl.style.top = (e.pageY + 15) + 'px';
+    }
+  });
+  // ----------------------
+
   function renderRaceTrack() {
     raceTrackEl.innerHTML = '';
     
@@ -398,32 +434,27 @@
       runner.style.display = 'flex';
       runner.style.alignItems = 'center';
       runner.style.gap = '8px';
+      runner.style.cursor = 'pointer';
+      
+      const avatarHtml = s.avatar 
+        ? `<img src="${s.avatar}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;">`
+        : `<div style="width:30px;height:30px;border-radius:50%;background:${tierInfo(s.level).color};display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:bold;">${initials(s.name)}</div>`;
       
       const avatar = document.createElement('div');
-      avatar.style.width = '30px';
-      avatar.style.height = '30px';
-      avatar.style.borderRadius = '50%';
-      avatar.style.background = tierInfo(s.level).color;
       avatar.style.boxShadow = `0 0 15px ${tierInfo(s.level).color}`;
-      avatar.style.color = '#fff';
-      avatar.style.display = 'flex';
-      avatar.style.alignItems = 'center';
-      avatar.style.justifyContent = 'center';
-      avatar.style.fontSize = '12px';
-      avatar.style.fontWeight = 'bold';
-      avatar.style.overflow = 'hidden';
-      
-      if (s.avatar) {
-        avatar.innerHTML = `<img src="${s.avatar}" style="width:100%; height:100%; object-fit:cover;">`;
-      } else {
-        avatar.textContent = initials(s.name);
-      }
+      avatar.style.borderRadius = '50%';
+      avatar.innerHTML = avatarHtml;
       
       const nameTag = document.createElement('span');
-      nameTag.textContent = `${s.name} (Lvl ${s.level})`;
+      nameTag.textContent = `${s.name}`;
       nameTag.style.fontSize = '0.8rem';
       nameTag.style.whiteSpace = 'nowrap';
       
+      runner.addEventListener('mouseenter', e => {
+        showTooltip(e, `${avatarHtml} <div><b>${s.name}</b><br/>Level ${s.level} - ${tierInfo(s.level).name}</div>`);
+      });
+      runner.addEventListener('mouseleave', hideTooltip);
+
       runner.appendChild(avatar);
       runner.appendChild(nameTag);
       lane.appendChild(runner);
@@ -434,29 +465,9 @@
   function renderStepsToSuccess() {
     stepsToSuccessEl.innerHTML = '';
     
-    // Background decorations
-    const decorations = `
-      <div style="position:absolute; top:20px; left:50%; transform:translateX(-50%); text-align:center;">
-        <div style="font-size:3rem;">🏝️</div>
-        <div style="font-weight:bold; color:var(--color-primary);">Success</div>
-      </div>
-      <div style="position:absolute; top:120px; left:50%; transform:translateX(-50%); text-align:center;">
-        <div style="font-size:2.5rem;">✈️</div>
-        <div style="font-size:0.8rem; color:var(--color-text-muted);">Placement</div>
-      </div>
-      <div style="position:absolute; top:220px; left:50%; transform:translateX(-50%); text-align:center;">
-        <div style="font-size:2rem;">🚪</div>
-        <div style="font-size:0.8rem; color:var(--color-text-muted);">Boarding</div>
-      </div>
-      <div style="position:absolute; top:320px; left:50%; transform:translateX(-50%); text-align:center; width: 100px; height: 10px; background: #555;">
-        <div style="position:absolute; top:-20px; width:100%; text-align:center; font-size:0.8rem; color:var(--color-text-muted);">TOI Wall</div>
-      </div>
-    `;
-    stepsToSuccessEl.innerHTML = decorations;
-
     // Build the staircase
-    const stepHeight = 10;
-    const bottomPadding = 50;
+    const stepHeight = 15;
+    const bottomPadding = 20;
     
     // Group students by level
     const byLevel = {};
@@ -479,18 +490,27 @@
       stepEl.style.display = 'flex';
       stepEl.style.justifyContent = 'center';
       stepEl.style.alignItems = 'flex-end';
-      stepEl.style.gap = '2px';
+      stepEl.style.gap = '4px';
       
       if (byLevel[lvl]) {
         byLevel[lvl].forEach(s => {
+          const avatarHtml = s.avatar 
+            ? `<img src="${s.avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">`
+            : `<div style="width:20px;height:20px;border-radius:50%;background:${tierInfo(s.level).color};display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:bold;">${initials(s.name)}</div>`;
+          
           const avatar = document.createElement('div');
-          avatar.style.width = '14px';
-          avatar.style.height = '14px';
           avatar.style.borderRadius = '50%';
-          avatar.style.background = tierInfo(s.level).color;
           avatar.style.boxShadow = `0 0 10px ${tierInfo(s.level).color}`;
-          avatar.style.border = '1px solid #fff';
-          avatar.title = `${s.name} - Level ${s.level}`;
+          avatar.style.cursor = 'pointer';
+          avatar.style.position = 'relative';
+          avatar.style.top = '10px'; // sit slightly on top of the step
+          avatar.innerHTML = avatarHtml;
+          
+          avatar.addEventListener('mouseenter', e => {
+            showTooltip(e, `${avatarHtml} <div><b>${s.name}</b><br/>Level ${s.level} - ${tierInfo(s.level).name}</div>`);
+          });
+          avatar.addEventListener('mouseleave', hideTooltip);
+
           stepEl.appendChild(avatar);
         });
       }
@@ -584,8 +604,11 @@
           options: { responsive: true, maintainAspectRatio: false }
         });
       } else if (currentView === 'trend') {
+        // LIMIT TO TOP 10 STUDENTS TO REDUCE CLUTTER
+        const topStudents = students.slice().sort((a,b) => b.level - a.level).slice(0, 10);
+        
         // Build datasets from student history
-        const datasets = students.map((s, i) => {
+        const datasets = topStudents.map((s, i) => {
           const color = `hsl(${(i * 137.5) % 360}, 70%, 50%)`;
           // History contains {level, at}. Sort by time.
           let history = [...(s.history || [])].sort((a, b) => a.at - b.at);
@@ -629,8 +652,19 @@
           options: { 
             responsive: true, 
             maintainAspectRatio: false,
+            plugins: {
+              title: {
+                display: true,
+                text: 'Trend (Top 10 Students)',
+                color: 'rgba(255, 255, 255, 0.7)'
+              },
+              legend: {
+                labels: { color: 'rgba(255, 255, 255, 0.7)' }
+              }
+            },
             scales: {
-              y: { min: 1, max: MAX_LEVEL }
+              x: { ticks: { color: 'rgba(255,255,255,0.5)' } },
+              y: { min: 1, max: MAX_LEVEL, ticks: { color: 'rgba(255,255,255,0.5)' } }
             }
           }
         });
