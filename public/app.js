@@ -609,67 +609,72 @@
           options: { responsive: true, maintainAspectRatio: false }
         });
       } else if (currentView === 'trend') {
-        // LIMIT TO TOP 10 STUDENTS TO REDUCE CLUTTER
-        const topStudents = students.slice().sort((a,b) => b.level - a.level).slice(0, 10);
+        viewChartContainer.style.backgroundColor = '#050b14';
+        viewChartContainer.style.boxShadow = 'inset 0 0 50px rgba(0, 255, 204, 0.1)';
+        viewChartContainer.style.borderRadius = '10px';
+        viewChartContainer.style.padding = '20px';
+        viewChartContainer.style.border = '1px solid rgba(0, 255, 204, 0.3)';
         
-        // Build datasets from student history
-        const datasets = topStudents.map((s, i) => {
-          const color = `hsl(${(i * 137.5) % 360}, 70%, 50%)`;
-          // History contains {level, at}. Sort by time.
-          let history = [...(s.history || [])].sort((a, b) => a.at - b.at);
-          // If no history, inject a starting point
-          if (history.length === 0) {
-            history = [{ level: s.level, at: s.createdAt || Date.now() }];
+        // LIMIT TO TOP 15 STUDENTS TO REDUCE CLUTTER
+        const topStudents = students.slice().sort((a,b) => b.level - a.level).slice(0, 15);
+        
+        const labels = topStudents.map(s => s.name);
+        const data = topStudents.map(s => s.level);
+        const dates = topStudents.map(s => {
+          // get most recent date from history, or fallback
+          const history = s.history || [];
+          if (history.length > 0) {
+            const last = history[history.length - 1];
+            return new Date(last.at).toLocaleDateString();
           }
-          
-          return {
-            label: s.name,
-            data: history.map(h => ({ x: new Date(h.at).toLocaleDateString(), y: h.level })),
-            borderColor: color,
-            backgroundColor: color,
-            fill: false,
-            tension: 0.1
-          };
+          return new Date(s.last_level_up_at || s.created_at || Date.now()).toLocaleDateString();
         });
-
-        // Collect all unique dates for labels
-        const allDates = new Set();
-        datasets.forEach(ds => ds.data.forEach(d => allDates.add(d.x)));
-        const labels = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b));
-
-        // Align datasets to standard labels
-        datasets.forEach(ds => {
-          let lastLvl = 1; // Start at 1
-          const alignedData = labels.map(label => {
-            const point = ds.data.find(d => d.x === label);
-            if (point) lastLvl = point.y;
-            return lastLvl;
-          });
-          ds.data = alignedData;
-        });
+        
+        const backgroundColors = topStudents.map((s, i) => `hsl(${(i * 137.5) % 360}, 70%, 50%)`);
 
         currentChart = new Chart(ctxChart, {
-          type: 'line',
+          type: 'bar',
           data: {
             labels: labels,
-            datasets: datasets
+            datasets: [{
+              label: 'Current Level',
+              data: data,
+              backgroundColor: backgroundColors,
+              borderRadius: 4
+            }]
           },
           options: { 
+            indexAxis: 'y', // Makes it horizontal
             responsive: true, 
             maintainAspectRatio: false,
             plugins: {
               title: {
                 display: true,
-                text: 'Trend (Top 10 Students)',
+                text: 'Student Levels (Top 15)',
                 color: 'rgba(255, 255, 255, 0.7)'
               },
               legend: {
-                labels: { color: 'rgba(255, 255, 255, 0.7)' }
+                display: false
+              },
+              tooltip: {
+                callbacks: {
+                  afterLabel: function(context) {
+                    const idx = context.dataIndex;
+                    return `Reached on: ${dates[idx]}`;
+                  }
+                }
               }
             },
             scales: {
-              x: { ticks: { color: 'rgba(255,255,255,0.5)' } },
-              y: { min: 1, max: MAX_LEVEL, ticks: { color: 'rgba(255,255,255,0.5)' } }
+              x: { 
+                min: 0, 
+                max: MAX_LEVEL, 
+                ticks: { color: 'rgba(255,255,255,0.5)' },
+                title: { display: true, text: 'Modules (Level 1-52)', color: 'rgba(255,255,255,0.7)' }
+              },
+              y: { 
+                ticks: { color: 'rgba(255,255,255,0.5)' } 
+              }
             }
           }
         });
