@@ -382,9 +382,10 @@
       const lane = document.createElement('div');
       lane.style.position = 'relative';
       lane.style.height = '40px';
-      lane.style.backgroundColor = 'var(--color-bg)';
+      lane.style.backgroundColor = 'rgba(0, 255, 204, 0.05)';
       lane.style.borderRadius = '20px';
-      lane.style.border = '1px solid var(--color-border)';
+      lane.style.border = '1px solid rgba(0, 255, 204, 0.2)';
+      lane.style.boxShadow = 'inset 0 0 10px rgba(0, 255, 204, 0.1)';
       lane.style.display = 'flex';
       lane.style.alignItems = 'center';
       
@@ -403,6 +404,7 @@
       avatar.style.height = '30px';
       avatar.style.borderRadius = '50%';
       avatar.style.background = tierInfo(s.level).color;
+      avatar.style.boxShadow = `0 0 15px ${tierInfo(s.level).color}`;
       avatar.style.color = '#fff';
       avatar.style.display = 'flex';
       avatar.style.alignItems = 'center';
@@ -471,8 +473,9 @@
       stepEl.style.left = `calc(50% - ${stepWidth/2}%)`;
       stepEl.style.width = `${stepWidth}%`;
       stepEl.style.height = `${stepHeight}px`;
-      stepEl.style.backgroundColor = (lvl % 5 === 0) ? 'var(--color-border)' : 'var(--color-bg)';
-      stepEl.style.borderTop = '1px solid var(--color-border)';
+      stepEl.style.backgroundColor = (lvl % 5 === 0) ? 'rgba(255, 0, 255, 0.2)' : 'rgba(0, 255, 204, 0.05)';
+      stepEl.style.borderTop = (lvl % 5 === 0) ? '1px solid rgba(255, 0, 255, 0.8)' : '1px solid rgba(0, 255, 204, 0.3)';
+      stepEl.style.boxShadow = '0 -2px 10px rgba(0, 255, 204, 0.2)';
       stepEl.style.display = 'flex';
       stepEl.style.justifyContent = 'center';
       stepEl.style.alignItems = 'flex-end';
@@ -485,6 +488,7 @@
           avatar.style.height = '14px';
           avatar.style.borderRadius = '50%';
           avatar.style.background = tierInfo(s.level).color;
+          avatar.style.boxShadow = `0 0 10px ${tierInfo(s.level).color}`;
           avatar.style.border = '1px solid #fff';
           avatar.title = `${s.name} - Level ${s.level}`;
           stepEl.appendChild(avatar);
@@ -506,7 +510,7 @@
     viewStepsContainer.style.display = 'none';
     viewChartContainer.style.display = 'none';
     
-    // Clear backgrounds
+    // Remove background images, just clear them
     viewTrackContainer.style.backgroundImage = 'none';
     viewRaceContainer.style.backgroundImage = 'none';
     viewStepsContainer.style.backgroundImage = 'none';
@@ -516,27 +520,28 @@
       viewTrackContainer.style.display = 'block';
     } else if (currentView === 'race') {
       viewRaceContainer.style.display = 'block';
-      viewRaceContainer.style.backgroundImage = 'linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url(/images/race_bg.jpg)';
-      viewRaceContainer.style.backgroundSize = 'cover';
-      viewRaceContainer.style.backgroundPosition = 'center';
+      viewRaceContainer.style.backgroundColor = '#050b14'; // Dark cyberpunk bg
+      viewRaceContainer.style.boxShadow = 'inset 0 0 50px rgba(0, 255, 204, 0.1)';
       viewRaceContainer.style.borderRadius = '10px';
       viewRaceContainer.style.padding = '20px';
+      viewRaceContainer.style.border = '1px solid rgba(0, 255, 204, 0.3)';
       renderRaceTrack();
     } else if (currentView === 'steps') {
       viewStepsContainer.style.display = 'block';
-      viewStepsContainer.style.backgroundImage = 'linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url(/images/steps_bg.jpg)';
-      viewStepsContainer.style.backgroundSize = 'cover';
-      viewStepsContainer.style.backgroundPosition = 'center';
+      viewStepsContainer.style.backgroundColor = '#050b14';
+      viewStepsContainer.style.boxShadow = 'inset 0 0 50px rgba(255, 0, 255, 0.1)';
+      viewStepsContainer.style.borderRadius = '10px';
+      viewStepsContainer.style.border = '1px solid rgba(255, 0, 255, 0.3)';
       renderStepsToSuccess();
     } else {
       viewChartContainer.style.display = 'block';
 
       if (currentView === 'trend') {
-        viewChartContainer.style.backgroundImage = 'linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url(/images/trend_bg.jpg)';
-        viewChartContainer.style.backgroundSize = 'cover';
-        viewChartContainer.style.backgroundPosition = 'center';
+        viewChartContainer.style.backgroundColor = '#050b14';
+        viewChartContainer.style.boxShadow = 'inset 0 0 50px rgba(0, 255, 204, 0.1)';
         viewChartContainer.style.borderRadius = '10px';
         viewChartContainer.style.padding = '20px';
+        viewChartContainer.style.border = '1px solid rgba(0, 255, 204, 0.3)';
       }
 
       if (currentView === 'bar') {
