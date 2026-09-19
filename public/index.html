@@ -75,9 +75,12 @@
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
       <h2>Milestone track</h2>
       <div class="chart-toggles">
-        <button class="ghost small active" id="btnViewTrack">Track View</button>
-        <button class="ghost small" id="btnViewBar">Bar Chart</button>
-        <button class="ghost small" id="btnViewPie">Pie Chart</button>
+        <button class="ghost small active" id="btnViewTrack">Track</button>
+        <button class="ghost small" id="btnViewRace">Race</button>
+        <button class="ghost small" id="btnViewSteps">Steps</button>
+        <button class="ghost small" id="btnViewBar">Bar</button>
+        <button class="ghost small" id="btnViewPie">Pie</button>
+        <button class="ghost small" id="btnViewTrend">Trend</button>
       </div>
     </div>
     <p class="track-hint">Visualize student progress across levels.</p>
@@ -85,6 +88,15 @@
     <div id="viewTrackContainer">
       <div class="track-wrap"><div class="track" id="track"></div></div>
     </div>
+    
+    <div id="viewRaceContainer" style="display:none; margin-top: 20px;">
+      <div id="raceTrack" style="display:flex; flex-direction:column; gap:10px;"></div>
+    </div>
+
+    <div id="viewStepsContainer" style="display:none; margin-top: 20px;">
+      <div id="stepsToSuccess" style="position:relative; width:100%; min-height:800px; background:var(--color-bg-secondary); border-radius:10px; padding:20px; overflow:hidden;"></div>
+    </div>
+
     <div id="viewChartContainer" style="display:none; width: 100%; height: 300px; margin-top: 20px;">
       <canvas id="statsChart"></canvas>
     </div>

@@ -22,13 +22,22 @@
   
   // Chart Elements
   const btnViewTrack = document.getElementById('btnViewTrack');
+  const btnViewRace = document.getElementById('btnViewRace');
+  const btnViewSteps = document.getElementById('btnViewSteps');
   const btnViewBar = document.getElementById('btnViewBar');
   const btnViewPie = document.getElementById('btnViewPie');
+  const btnViewTrend = document.getElementById('btnViewTrend');
+  
   const viewTrackContainer = document.getElementById('viewTrackContainer');
+  const viewRaceContainer = document.getElementById('viewRaceContainer');
+  const raceTrackEl = document.getElementById('raceTrack');
+  const viewStepsContainer = document.getElementById('viewStepsContainer');
+  const stepsToSuccessEl = document.getElementById('stepsToSuccess');
   const viewChartContainer = document.getElementById('viewChartContainer');
   const ctxChart = document.getElementById('statsChart').getContext('2d');
+  
   let currentChart = null;
-  let currentView = 'track'; // 'track', 'bar', 'pie'
+  let currentView = 'track'; // 'track', 'race', 'steps', 'bar', 'pie', 'trend'
 
   const taglines = [
     "Learning is a journey, not a destination.",
@@ -267,83 +276,278 @@
     return card;
   }
 
+  function renderRaceTrack() {
+    raceTrackEl.innerHTML = '';
+    
+    // Draw finish line marker at top
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.position = 'relative';
+    header.style.height = '20px';
+    header.style.marginBottom = '10px';
+    header.style.borderBottom = '1px dashed var(--color-border)';
+    
+    const finishLine = document.createElement('div');
+    finishLine.textContent = '🏁 Level 52';
+    finishLine.style.position = 'absolute';
+    finishLine.style.right = '0';
+    finishLine.style.bottom = '5px';
+    finishLine.style.fontSize = '0.8rem';
+    finishLine.style.color = 'var(--color-text-muted)';
+    header.appendChild(finishLine);
+    raceTrackEl.appendChild(header);
+
+    const sorted = students.slice().sort((a, b) => b.level - a.level);
+    sorted.forEach(s => {
+      const lane = document.createElement('div');
+      lane.style.position = 'relative';
+      lane.style.height = '40px';
+      lane.style.backgroundColor = 'var(--color-bg)';
+      lane.style.borderRadius = '20px';
+      lane.style.border = '1px solid var(--color-border)';
+      lane.style.display = 'flex';
+      lane.style.alignItems = 'center';
+      
+      const pct = Math.max(2, (s.level / MAX_LEVEL) * 100);
+      
+      const runner = document.createElement('div');
+      runner.style.position = 'absolute';
+      runner.style.left = `calc(${pct}% - 30px)`;
+      runner.style.transition = 'left 1s ease-out';
+      runner.style.display = 'flex';
+      runner.style.alignItems = 'center';
+      runner.style.gap = '8px';
+      
+      const avatar = document.createElement('div');
+      avatar.style.width = '30px';
+      avatar.style.height = '30px';
+      avatar.style.borderRadius = '50%';
+      avatar.style.background = tierInfo(s.level).color;
+      avatar.style.color = '#fff';
+      avatar.style.display = 'flex';
+      avatar.style.alignItems = 'center';
+      avatar.style.justifyContent = 'center';
+      avatar.style.fontSize = '12px';
+      avatar.style.fontWeight = 'bold';
+      avatar.style.overflow = 'hidden';
+      
+      if (s.avatar) {
+        avatar.innerHTML = `<img src="${s.avatar}" style="width:100%; height:100%; object-fit:cover;">`;
+      } else {
+        avatar.textContent = initials(s.name);
+      }
+      
+      const nameTag = document.createElement('span');
+      nameTag.textContent = `${s.name} (Lvl ${s.level})`;
+      nameTag.style.fontSize = '0.8rem';
+      nameTag.style.whiteSpace = 'nowrap';
+      
+      runner.appendChild(avatar);
+      runner.appendChild(nameTag);
+      lane.appendChild(runner);
+      raceTrackEl.appendChild(lane);
+    });
+  }
+
+  function renderStepsToSuccess() {
+    stepsToSuccessEl.innerHTML = '';
+    
+    // Background decorations
+    const decorations = `
+      <div style="position:absolute; top:20px; left:50%; transform:translateX(-50%); text-align:center;">
+        <div style="font-size:3rem;">🏝️</div>
+        <div style="font-weight:bold; color:var(--color-primary);">Success</div>
+      </div>
+      <div style="position:absolute; top:120px; left:50%; transform:translateX(-50%); text-align:center;">
+        <div style="font-size:2.5rem;">✈️</div>
+        <div style="font-size:0.8rem; color:var(--color-text-muted);">Placement</div>
+      </div>
+      <div style="position:absolute; top:220px; left:50%; transform:translateX(-50%); text-align:center;">
+        <div style="font-size:2rem;">🚪</div>
+        <div style="font-size:0.8rem; color:var(--color-text-muted);">Boarding</div>
+      </div>
+      <div style="position:absolute; top:320px; left:50%; transform:translateX(-50%); text-align:center; width: 100px; height: 10px; background: #555;">
+        <div style="position:absolute; top:-20px; width:100%; text-align:center; font-size:0.8rem; color:var(--color-text-muted);">TOI Wall</div>
+      </div>
+    `;
+    stepsToSuccessEl.innerHTML = decorations;
+
+    // Build the staircase
+    const stepHeight = 10;
+    const bottomPadding = 50;
+    
+    // Group students by level
+    const byLevel = {};
+    students.forEach(s => {
+      byLevel[s.level] = byLevel[s.level] || [];
+      byLevel[s.level].push(s);
+    });
+
+    for (let lvl = 1; lvl <= MAX_LEVEL; lvl++) {
+      const stepWidth = 100 - (lvl * 1.5); // Narrows as it goes up
+      const stepEl = document.createElement('div');
+      stepEl.style.position = 'absolute';
+      stepEl.style.bottom = `${bottomPadding + (lvl * stepHeight)}px`;
+      stepEl.style.left = `calc(50% - ${stepWidth/2}%)`;
+      stepEl.style.width = `${stepWidth}%`;
+      stepEl.style.height = `${stepHeight}px`;
+      stepEl.style.backgroundColor = (lvl % 5 === 0) ? 'var(--color-border)' : 'var(--color-bg)';
+      stepEl.style.borderTop = '1px solid var(--color-border)';
+      stepEl.style.display = 'flex';
+      stepEl.style.justifyContent = 'center';
+      stepEl.style.alignItems = 'flex-end';
+      stepEl.style.gap = '2px';
+      
+      if (byLevel[lvl]) {
+        byLevel[lvl].forEach(s => {
+          const avatar = document.createElement('div');
+          avatar.style.width = '14px';
+          avatar.style.height = '14px';
+          avatar.style.borderRadius = '50%';
+          avatar.style.background = tierInfo(s.level).color;
+          avatar.style.border = '1px solid #fff';
+          avatar.title = `${s.name} - Level ${s.level}`;
+          stepEl.appendChild(avatar);
+        });
+      }
+      
+      stepsToSuccessEl.appendChild(stepEl);
+    }
+  }
+
   function renderCharts() {
     if (currentChart) {
       currentChart.destroy();
-    }
-    
-    if (currentView === 'track') {
-      viewTrackContainer.style.display = 'block';
-      viewChartContainer.style.display = 'none';
-      return;
+      currentChart = null;
     }
     
     viewTrackContainer.style.display = 'none';
-    viewChartContainer.style.display = 'block';
-
-    const levels = students.map(s => s.level);
+    viewRaceContainer.style.display = 'none';
+    viewStepsContainer.style.display = 'none';
+    viewChartContainer.style.display = 'none';
     
-    if (currentView === 'bar') {
-      // Group by level ranges
-      const ranges = { 'Rookie (1-13)': 0, 'Skilled (14-26)': 0, 'Expert (27-39)': 0, 'Master (40-52)': 0 };
-      students.forEach(s => {
-        if (s.level <= 13) ranges['Rookie (1-13)']++;
-        else if (s.level <= 26) ranges['Skilled (14-26)']++;
-        else if (s.level <= 39) ranges['Expert (27-39)']++;
-        else ranges['Master (40-52)']++;
-      });
-      
-      currentChart = new Chart(ctxChart, {
-        type: 'bar',
-        data: {
-          labels: Object.keys(ranges),
-          datasets: [{
-            label: 'Number of Students',
-            data: Object.values(ranges),
-            backgroundColor: ['#e2e8f0', '#94a3b8', '#64748b', '#0f172a']
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false
-        }
-      });
-    } else if (currentView === 'pie') {
-      // Group by domains
-      const domains = {};
-      students.forEach(s => {
-        const d = (s.domain || 'MERN').trim();
-        domains[d] = (domains[d] || 0) + 1;
-      });
-      
-      currentChart = new Chart(ctxChart, {
-        type: 'pie',
-        data: {
-          labels: Object.keys(domains),
-          datasets: [{
-            data: Object.values(domains),
-            backgroundColor: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b']
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false
-        }
-      });
+    if (currentView === 'track') {
+      viewTrackContainer.style.display = 'block';
+    } else if (currentView === 'race') {
+      viewRaceContainer.style.display = 'block';
+      renderRaceTrack();
+    } else if (currentView === 'steps') {
+      viewStepsContainer.style.display = 'block';
+      renderStepsToSuccess();
+    } else {
+      viewChartContainer.style.display = 'block';
+
+      if (currentView === 'bar') {
+        const ranges = { 'Rookie (1-13)': 0, 'Skilled (14-26)': 0, 'Expert (27-39)': 0, 'Master (40-52)': 0 };
+        students.forEach(s => {
+          if (s.level <= 13) ranges['Rookie (1-13)']++;
+          else if (s.level <= 26) ranges['Skilled (14-26)']++;
+          else if (s.level <= 39) ranges['Expert (27-39)']++;
+          else ranges['Master (40-52)']++;
+        });
+        
+        currentChart = new Chart(ctxChart, {
+          type: 'bar',
+          data: {
+            labels: Object.keys(ranges),
+            datasets: [{
+              label: 'Number of Students',
+              data: Object.values(ranges),
+              backgroundColor: ['#e2e8f0', '#94a3b8', '#64748b', '#0f172a']
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      } else if (currentView === 'pie') {
+        const domains = {};
+        students.forEach(s => {
+          const d = (s.domain || 'MERN').trim();
+          domains[d] = (domains[d] || 0) + 1;
+        });
+        
+        currentChart = new Chart(ctxChart, {
+          type: 'pie',
+          data: {
+            labels: Object.keys(domains),
+            datasets: [{
+              data: Object.values(domains),
+              backgroundColor: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b']
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      } else if (currentView === 'trend') {
+        // Build datasets from student history
+        const datasets = students.map((s, i) => {
+          const color = `hsl(${(i * 137.5) % 360}, 70%, 50%)`;
+          // History contains {level, at}. Sort by time.
+          let history = [...(s.history || [])].sort((a, b) => a.at - b.at);
+          // If no history, inject a starting point
+          if (history.length === 0) {
+            history = [{ level: s.level, at: s.createdAt || Date.now() }];
+          }
+          
+          return {
+            label: s.name,
+            data: history.map(h => ({ x: new Date(h.at).toLocaleDateString(), y: h.level })),
+            borderColor: color,
+            backgroundColor: color,
+            fill: false,
+            tension: 0.1
+          };
+        });
+
+        // Collect all unique dates for labels
+        const allDates = new Set();
+        datasets.forEach(ds => ds.data.forEach(d => allDates.add(d.x)));
+        const labels = Array.from(allDates).sort((a, b) => new Date(a) - new Date(b));
+
+        // Align datasets to standard labels
+        datasets.forEach(ds => {
+          let lastLvl = 1; // Start at 1
+          const alignedData = labels.map(label => {
+            const point = ds.data.find(d => d.x === label);
+            if (point) lastLvl = point.y;
+            return lastLvl;
+          });
+          ds.data = alignedData;
+        });
+
+        currentChart = new Chart(ctxChart, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: datasets
+          },
+          options: { 
+            responsive: true, 
+            maintainAspectRatio: false,
+            scales: {
+              y: { min: 1, max: MAX_LEVEL }
+            }
+          }
+        });
+      }
     }
   }
 
   function setView(view) {
     currentView = view;
     btnViewTrack.classList.toggle('active', view === 'track');
+    btnViewRace.classList.toggle('active', view === 'race');
+    btnViewSteps.classList.toggle('active', view === 'steps');
     btnViewBar.classList.toggle('active', view === 'bar');
     btnViewPie.classList.toggle('active', view === 'pie');
+    btnViewTrend.classList.toggle('active', view === 'trend');
     renderCharts();
   }
 
   btnViewTrack.addEventListener('click', () => setView('track'));
+  btnViewRace.addEventListener('click', () => setView('race'));
+  btnViewSteps.addEventListener('click', () => setView('steps'));
   btnViewBar.addEventListener('click', () => setView('bar'));
   btnViewPie.addEventListener('click', () => setView('pie'));
+  btnViewTrend.addEventListener('click', () => setView('trend'));
 
   function render() {
     grid.innerHTML = '';
