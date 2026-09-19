@@ -31,10 +31,17 @@
   <div class="toolbar" id="toolbar">
     <button class="primary" id="btnJoinRace" style="display:none;">+ Join Race</button>
     <button class="ghost small" id="btnLoginToggle">Login / Register</button>
-    <span id="adminBadge" style="display:none; color:var(--gold); font-weight:bold; margin-right:15px;">👑 Admin</span>
+    
+    <!-- Batch specific toolbar items -->
+    <button class="ghost small" id="btnInviteCode" style="display:none;" title="Copy Invite Link">🔗 Invite</button>
+    <button class="ghost small" id="btnManageApprovals" style="display:none;">👥 Approvals</button>
+    
+    <span id="adminBadge" style="display:none; color:var(--gold); font-weight:bold; margin-right:15px; margin-left:15px;">👑 Admin</span>
     <button class="ghost small" id="btnLogout" style="display:none;">Logout</button>
-    <button class="ghost small" id="btnExport">Export backup</button>
-    <button class="ghost small" id="btnImportTrigger">Import backup</button>
+    
+    <!-- Hide export/import for now to clean up UI, or leave them for global admin? Let's leave them but hidden unless admin -->
+    <button class="ghost small" id="btnExport" style="display:none;">Export backup</button>
+    <button class="ghost small" id="btnImportTrigger" style="display:none;">Import backup</button>
     <input type="file" id="importFile" accept="application/json">
   </div>
 
@@ -66,15 +73,55 @@
         </div>
       </div>
     </div>
+  </div>
 
   <!-- Message Modal -->
-  <div class="modal-overlay" id="messageModal">
+  <div class="modal-overlay" id="messageModal" style="z-index: 200;">
     <div class="modal-box" style="text-align: center;">
       <h3 id="messageTitle">Success</h3>
       <p id="messageBody" style="font-size: 1.1rem; color: #fff; margin-bottom: 20px;">Message here</p>
       <button class="primary" id="btnMessageClose" style="width: 100%;">OK</button>
     </div>
   </div>
+
+  <!-- Batch Setup Modal -->
+  <div class="modal-overlay" id="batchSetupModal">
+    <div class="modal-box">
+      <h3>Welcome to Rank Board</h3>
+      <p>To continue, you must either join an existing batch or create a new one.</p>
+      
+      <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+        <h4 style="margin: 0 0 10px; color: var(--teal);">Have an invite code?</h4>
+        <div class="field" style="display:flex; gap:10px;">
+          <input type="text" id="joinBatchCode" placeholder="Enter code (e.g. A1B2C3)" style="flex:1;">
+          <button class="primary small" id="btnSubmitJoinBatch">Join</button>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin: 10px 0; color: var(--muted);">OR</div>
+
+      <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;">
+        <h4 style="margin: 0 0 10px; color: var(--gold);">Create a new batch</h4>
+        <div class="field" style="display:flex; gap:10px;">
+          <input type="text" id="createBatchName" placeholder="Batch name (e.g. React 2026)" style="flex:1;">
+          <button class="primary small" id="btnSubmitCreateBatch">Create</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Approvals Modal -->
+  <div class="modal-overlay" id="manageApprovalsModal">
+    <div class="modal-box" style="max-width: 500px;">
+      <h3>Manage Approvals</h3>
+      <p>The following users want to join your batch.</p>
+      <div id="pendingUsersList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px; display:flex; flex-direction:column; gap:10px;">
+        <!-- Pending users rendered here -->
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" id="btnManageApprovalsClose">Close</button>
+      </div>
+    </div>
   </div>
 
   <div class="panel" id="editPanel">

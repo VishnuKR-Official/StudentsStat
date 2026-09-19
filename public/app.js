@@ -90,6 +90,10 @@
   let authToken = localStorage.getItem('authToken') || null;
   let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
 
+  // Handle invite links in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const inviteCodeParam = urlParams.get('invite');
+
   const grid = document.getElementById('grid');
   const emptyState = document.getElementById('emptyState');
   const editPanel = document.getElementById('editPanel');
@@ -114,6 +118,18 @@
   const authNameField = document.getElementById('authNameField');
 
   let authMode = 'login'; // 'login' or 'register'
+  
+  // Batch UI
+  const btnInviteCode = document.getElementById('btnInviteCode');
+  const btnManageApprovals = document.getElementById('btnManageApprovals');
+  const batchSetupModal = document.getElementById('batchSetupModal');
+  const joinBatchCode = document.getElementById('joinBatchCode');
+  const btnSubmitJoinBatch = document.getElementById('btnSubmitJoinBatch');
+  const createBatchName = document.getElementById('createBatchName');
+  const btnSubmitCreateBatch = document.getElementById('btnSubmitCreateBatch');
+  const manageApprovalsModal = document.getElementById('manageApprovalsModal');
+  const pendingUsersList = document.getElementById('pendingUsersList');
+  const btnManageApprovalsClose = document.getElementById('btnManageApprovalsClose');
   
   // Chart Elements
   const btnViewTrack = document.getElementById('btnViewTrack');
@@ -169,26 +185,40 @@
   }
 
   function updateAuthUI() {
+    // Reset displays
+    btnLoginToggle.style.display = 'inline-block';
+    btnLogout.style.display = 'none';
+    btnJoinRace.style.display = 'none';
+    btnInviteCode.style.display = 'none';
+    btnManageApprovals.style.display = 'none';
+    batchSetupModal.classList.remove('open');
+    if (adminBadge) adminBadge.style.display = 'none';
+    
     if (authToken && currentUser) {
       btnLoginToggle.style.display = 'none';
       btnLogout.style.display = 'inline-block';
-      if (currentUser.role === 'admin') {
-        adminBadge.style.display = 'inline-block';
-      } else {
-        adminBadge.style.display = 'none';
-      }
       
-      const userHasProfile = students.some(s => s.id === currentUser.id || s.email === currentUser.email);
-      if (userHasProfile || currentUser.role === 'admin') {
-        btnJoinRace.style.display = 'none';
-      } else {
-        btnJoinRace.style.display = 'inline-block';
+      if (!currentUser.batch_id) {
+        batchSetupModal.classList.add('open');
+      } else if (currentUser.batch_status === 'pending') {
+        batchSetupModal.classList.remove('open');
+        showMessage('Pending Approval', 'Your request to join the batch is pending admin approval.');
+      } else if (currentUser.batch_status === 'approved') {
+        batchSetupModal.classList.remove('open');
+        btnInviteCode.style.display = 'inline-block';
+        
+        if (currentUser.role === 'admin') {
+          if (adminBadge) adminBadge.style.display = 'inline-block';
+          btnManageApprovals.style.display = 'inline-block';
+        }
+        
+        const userHasProfile = students.some(s => s.id === currentUser.id || s.email === currentUser.email);
+        if (userHasProfile || currentUser.role === 'admin') {
+          btnJoinRace.style.display = 'none';
+        } else {
+          btnJoinRace.style.display = 'inline-block';
+        }
       }
-    } else {
-      btnLoginToggle.style.display = 'inline-block';
-      btnLogout.style.display = 'none';
-      btnJoinRace.style.display = 'none';
-      if (adminBadge) adminBadge.style.display = 'none';
     }
   }
 
@@ -250,6 +280,14 @@
       await loadStudents();
       modeBadge.textContent = 'Connected — changes save to the server';
       footerNote.textContent = 'Data is stored in the server\'s database and stays until a student is deleted.';
+      
+      if (inviteCodeParam && !authToken) {
+        authMode = 'register';
+        authToggleMode.textContent = 'Already have an account? Login';
+        authNameField.style.display = 'block';
+        authSubmit.textContent = 'Register & Join Batch';
+        authModal.classList.add('open');
+      }
     } catch (e) {
       modeBadge.classList.add('ro');
       modeBadge.textContent = 'Could not reach the server';
@@ -301,11 +339,11 @@
         const name = authName.value.trim();
         if (!name) return showMessage('Error', 'Name required');
         
-        // Use the proper register endpoint so it checks for dupes and sets 'admin' for the first user
+        // Use the proper register endpoint
         const regRes = await fetch('/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, name })
+          body: JSON.stringify({ email, password, name, inviteCode: inviteCodeParam })
         });
         if (!regRes.ok) {
           const j = await regRes.json();
@@ -999,6 +1037,96 @@
   });
 
 
+  // Batch Event Listeners
+  btnSubmitCreateBatch.addEventListener('click', async () => {
+    const name = createBatchName.value.trim();
+    if (!name) return showMessage('Error', 'Batch name required');
+    try {
+      const data = await api('/api/batches', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name })
+      });
+      currentUser.batch_id = data.batch_id;
+      currentUser.batch_status = 'approved';
+      currentUser.role = 'admin';
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      updateAuthUI();
+      loadStudents();
+      showMessage('Success', `Batch created! Invite code: ${data.invite_code}`);
+    } catch(e) {
+      showMessage('Error', e.message);
+    }
+  });
+
+  btnSubmitJoinBatch.addEventListener('click', async () => {
+    const code = joinBatchCode.value.trim();
+    if (!code) return showMessage('Error', 'Invite code required');
+    try {
+      const data = await api('/api/batches/join', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ inviteCode: code })
+      });
+      currentUser.batch_status = 'pending';
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      updateAuthUI();
+      showMessage('Success', data.message);
+    } catch(e) {
+      showMessage('Error', e.message);
+    }
+  });
+
+  btnInviteCode.addEventListener('click', async () => {
+    try {
+      const b = await api('/api/batches/my-batch');
+      const url = `${window.location.origin}/?invite=${b.invite_code}`;
+      await navigator.clipboard.writeText(url);
+      showMessage('Copied!', `Invite link copied to clipboard:\n\n${url}`);
+    } catch(e) {
+      showMessage('Error', e.message);
+    }
+  });
+
+  btnManageApprovals.addEventListener('click', async () => {
+    try {
+      const pending = await api('/api/batches/pending');
+      pendingUsersList.innerHTML = '';
+      if (pending.length === 0) {
+        pendingUsersList.innerHTML = '<p style="color:var(--muted);text-align:center;">No pending requests.</p>';
+      } else {
+        pending.forEach(u => {
+          const div = document.createElement('div');
+          div.style = 'display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:10px; border-radius:5px;';
+          div.innerHTML = `
+            <div><strong>${escapeHtml(u.name)}</strong> <small>(${escapeHtml(u.email)})</small></div>
+            <div>
+              <button class="primary small btn-approve" data-id="${u.id}">Approve</button>
+              <button class="ghost small btn-reject" data-id="${u.id}">Reject</button>
+            </div>
+          `;
+          pendingUsersList.appendChild(div);
+        });
+        
+        pendingUsersList.querySelectorAll('.btn-approve').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            await api(`/api/batches/approve/${e.target.dataset.id}`, { method: 'POST' });
+            e.target.closest('div').parentElement.remove();
+            loadStudents();
+          });
+        });
+        pendingUsersList.querySelectorAll('.btn-reject').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            await api(`/api/batches/reject/${e.target.dataset.id}`, { method: 'POST' });
+            e.target.closest('div').parentElement.remove();
+          });
+        });
+      }
+      manageApprovalsModal.classList.add('open');
+    } catch(e) {
+      showMessage('Error', e.message);
+    }
+  });
+
+  btnManageApprovalsClose.addEventListener('click', () => {
+    manageApprovalsModal.classList.remove('open');
+  });
 
   init();
   // Refresh periodically so streak/emoji state (and other people's edits) stay current

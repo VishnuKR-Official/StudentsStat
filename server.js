@@ -149,25 +149,29 @@ function isAdmin(req, res, next) {
 
 // --- AUTH ROUTES ---
 app.post('/api/register', async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, inviteCode } = req.body;
   if (!name || !email || !password) return res.status(400).json({error: 'Missing fields'});
   try {
     const { rows } = await pool.query('SELECT * FROM students WHERE email = $1', [email]);
     if (rows.length > 0) return res.status(400).json({error: 'Email already exists'});
     
+    let batchId = null;
+    let batchStatus = null;
+    if (inviteCode) {
+      const batchRes = await pool.query('SELECT id FROM batches WHERE invite_code = $1', [inviteCode]);
+      if (batchRes.rows.length === 0) return res.status(400).json({error: 'Invalid invite code'});
+      batchId = batchRes.rows[0].id;
+      batchStatus = 'pending';
+    }
+    
     const hash = await bcrypt.hash(password, 10);
     const id = crypto.randomUUID();
     const now = Date.now();
-    
-    // First user is admin
-    const countRes = await pool.query('SELECT COUNT(*) FROM students');
-    const isFirst = parseInt(countRes.rows[0].count) === 0;
-    const role = isFirst ? 'admin' : 'student';
 
     await pool.query(
-      `INSERT INTO students (id, name, email, password_hash, role, created_at, last_updated, last_level_up_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [id, name, email, hash, role, now, now, now]
+      `INSERT INTO students (id, name, email, password_hash, role, created_at, last_updated, last_level_up_at, batch_id, batch_status) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [id, name, email, hash, 'student', now, now, now, batchId, batchStatus]
     );
     res.json({ message: 'Registered successfully. Please login.' });
   } catch(err) {
@@ -188,8 +192,24 @@ app.post('/api/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password_hash);
     if (!match) return res.status(400).json({error: 'Invalid credentials'});
     
-    const token = jwt.sign({ id: user.id, role: user.role, name: user.name }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: { id: user.id, name: user.name, role: user.role, level: user.level } });
+    let isBatchAdmin = false;
+    let batchName = null;
+    if (user.batch_id) {
+      const bRes = await pool.query('SELECT * FROM batches WHERE id = $1', [user.batch_id]);
+      if (bRes.rows.length > 0) {
+        batchName = bRes.rows[0].name;
+        isBatchAdmin = bRes.rows[0].created_by === user.id;
+      }
+    }
+    
+    // role is dynamic now based on batch admin status, but we'll still pass the raw role just in case.
+    const tokenUser = { 
+      id: user.id, name: user.name, role: isBatchAdmin ? 'admin' : 'student',
+      batch_id: user.batch_id, batch_status: user.batch_status, batch_name: batchName 
+    };
+    
+    const token = jwt.sign(tokenUser, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ token, user: tokenUser });
   } catch(err) {
     res.status(500).json({error: 'DB error'});
   }
@@ -232,26 +252,109 @@ app.post('/api/reset-password', async (req, res) => {
   }
 });
 
-// Admin verification endpoint
-app.post('/api/admin/verify', (req, res) => {
-  const { passcode } = req.body || {};
-  if (passcode === ADMIN_PASSWORD) {
-    return res.json({ success: true });
+// --- BATCH ENDPOINTS ---
+
+app.post('/api/batches', authenticateToken, async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({error: 'Batch name required'});
+  try {
+    const batchId = crypto.randomUUID();
+    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    await pool.query(
+      'INSERT INTO batches (id, name, created_by, invite_code, created_at) VALUES ($1, $2, $3, $4, $5)',
+      [batchId, name, req.user.id, inviteCode, Date.now()]
+    );
+    await pool.query(
+      'UPDATE students SET batch_id = $1, batch_status = $2 WHERE id = $3',
+      [batchId, 'approved', req.user.id]
+    );
+    res.json({ message: 'Batch created', batch_id: batchId, invite_code: inviteCode });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({error: 'DB error'});
   }
-  return res.status(401).json({ success: false, error: 'Incorrect passcode' });
 });
 
-// List all students
-app.get('/api/students', async (req, res) => {
+app.post('/api/batches/join', authenticateToken, async (req, res) => {
+  const { inviteCode } = req.body;
+  try {
+    const bRes = await pool.query('SELECT id FROM batches WHERE invite_code = $1', [inviteCode]);
+    if (bRes.rows.length === 0) return res.status(400).json({error: 'Invalid invite code'});
+    const batchId = bRes.rows[0].id;
+    await pool.query(
+      'UPDATE students SET batch_id = $1, batch_status = $2 WHERE id = $3',
+      [batchId, 'pending', req.user.id]
+    );
+    res.json({ message: 'Request to join sent. Waiting for admin approval.' });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
+app.get('/api/batches/my-batch', authenticateToken, async (req, res) => {
+  if (!req.user.batch_id) return res.status(400).json({error: 'Not in a batch'});
+  try {
+    const { rows } = await pool.query('SELECT * FROM batches WHERE id = $1', [req.user.batch_id]);
+    if (rows.length === 0) return res.status(404).json({error: 'Batch not found'});
+    res.json(rows[0]);
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
+app.get('/api/batches/pending', authenticateToken, async (req, res) => {
+  if (!req.user.batch_id) return res.status(400).json({error: 'Not in a batch'});
+  try {
+    const bRes = await pool.query('SELECT created_by FROM batches WHERE id = $1', [req.user.batch_id]);
+    if (bRes.rows.length === 0 || bRes.rows[0].created_by !== req.user.id) {
+      return res.status(403).json({error: 'Only batch admin can view pending'});
+    }
+    const { rows } = await pool.query('SELECT id, name, email FROM students WHERE batch_id = $1 AND batch_status = $2', [req.user.batch_id, 'pending']);
+    res.json(rows);
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
+app.post('/api/batches/approve/:studentId', authenticateToken, async (req, res) => {
+  try {
+    const bRes = await pool.query('SELECT created_by FROM batches WHERE id = $1', [req.user.batch_id]);
+    if (bRes.rows.length === 0 || bRes.rows[0].created_by !== req.user.id) {
+      return res.status(403).json({error: 'Only batch admin can approve'});
+    }
+    await pool.query('UPDATE students SET batch_status = $1 WHERE id = $2 AND batch_id = $3', ['approved', req.params.studentId, req.user.batch_id]);
+    res.json({ success: true });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
+app.post('/api/batches/reject/:studentId', authenticateToken, async (req, res) => {
+  try {
+    const bRes = await pool.query('SELECT created_by FROM batches WHERE id = $1', [req.user.batch_id]);
+    if (bRes.rows.length === 0 || bRes.rows[0].created_by !== req.user.id) {
+      return res.status(403).json({error: 'Only batch admin can reject'});
+    }
+    await pool.query('UPDATE students SET batch_id = NULL, batch_status = NULL WHERE id = $1 AND batch_id = $2', [req.params.studentId, req.user.batch_id]);
+    res.json({ success: true });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
+// List all approved students in the current user's batch
+app.get('/api/students', authenticateToken, async (req, res) => {
+  if (!req.user.batch_id) return res.json([]);
   try {
     const { rows } = await withRetry(() =>
-      pool.query('SELECT * FROM students ORDER BY level DESC, name ASC')
+      pool.query('SELECT * FROM students WHERE batch_id = $1 AND batch_status = $2 ORDER BY level DESC, name ASC', [req.user.batch_id, 'approved'])
     );
-    // Don't leak passwords!
-    const safeRows = rows.map(r => {
-      delete r.password_hash;
-      return r;
-    });
+    const safeRows = rows.map(r => { delete r.password_hash; return r; });
     res.json(safeRows.map(rowToStudent).map(withComputed));
   } catch (err) {
     console.error(err);
@@ -539,7 +642,17 @@ async function initDb() {
       ALTER TABLE students ADD COLUMN IF NOT EXISTS password_hash TEXT;
       ALTER TABLE students ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'student';
       ALTER TABLE students ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT false;
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS batch_id TEXT;
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS batch_status TEXT;
       ALTER TABLE students ENABLE ROW LEVEL SECURITY;
+      
+      CREATE TABLE IF NOT EXISTS batches (
+        id              TEXT PRIMARY KEY,
+        name            TEXT NOT NULL,
+        created_by      TEXT NOT NULL,
+        invite_code     TEXT NOT NULL UNIQUE,
+        created_at      BIGINT NOT NULL
+      );
       
       CREATE TABLE IF NOT EXISTS delete_requests (
         id              SERIAL PRIMARY KEY,
