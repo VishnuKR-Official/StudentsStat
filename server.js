@@ -73,6 +73,7 @@ function rowToStudent(r) {
     name: r.name,
     level: r.level,
     description: r.description || '',
+    domain: r.domain || '',
     avatar: r.avatar || null,
     createdAt: Number(r.created_at),
     lastUpdated: Number(r.last_updated),
@@ -101,15 +102,24 @@ function withComputed(s) {
   return { ...s, weeksStale, justLeveledUp };
 }
 
-// ---- Admin Protection Configuration ----------------------------------------
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '1234';
+// Ensure the domain column exists on startup
+(async function initDB() {
+  try {
+    await pool.query('ALTER TABLE students ADD COLUMN IF NOT EXISTS domain text DEFAULT \'\'');
+  } catch (err) {
+    console.error('Migration error:', err.message);
+  }
+})();
+
+// ==== Endpoints ==== //
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'secret';
 
 function requireAdmin(req, res, next) {
-  const passcode = req.headers['x-admin-passcode'];
-  if (passcode === ADMIN_PASSWORD) {
+  if (req.headers['x-admin-passcode'] === ADMIN_PASSWORD) {
     return next();
   }
-  return res.status(401).json({ error: 'Admin passcode required or invalid' });
+  return res.status(401).json({ error: 'unauthorized' });
 }
 
 // ---- app ---------------------------------------------------------------
@@ -142,7 +152,7 @@ app.get('/api/students', async (req, res) => {
 // Create a student (Admin Protected)
 app.post('/api/students', requireAdmin, async (req, res) => {
   try {
-    const { name, level, description, avatar } = req.body || {};
+    const { name, level, description, domain, avatar } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
     const lvl = clampLevel(level);
     const now = Date.now();
@@ -152,6 +162,7 @@ app.post('/api/students', requireAdmin, async (req, res) => {
       name: String(name).trim().slice(0, 60),
       level: lvl,
       description: (description || '').slice(0, 240),
+      domain: (domain || '').slice(0, 60),
       avatar: avatarUrl || null,
       createdAt: now,
       lastUpdated: now,
@@ -160,10 +171,10 @@ app.post('/api/students', requireAdmin, async (req, res) => {
     };
     await pool.query(
       `INSERT INTO students
-        (id, name, level, description, avatar, created_at, last_updated, last_level_up_at, history)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        (id, name, level, description, domain, avatar, created_at, last_updated, last_level_up_at, history)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [
-        student.id, student.name, student.level, student.description, student.avatar,
+        student.id, student.name, student.level, student.description, student.domain, student.avatar,
         student.createdAt, student.lastUpdated, student.lastLevelUpAt,
         JSON.stringify(student.history),
       ]
@@ -175,18 +186,19 @@ app.post('/api/students', requireAdmin, async (req, res) => {
   }
 });
 
-// Update a student (name / level / description / avatar) (Admin Protected)
+// Update a student (name / level / description / domain / avatar) (Admin Protected)
 app.patch('/api/students/:id', requireAdmin, async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM students WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'not found' });
     const s = rowToStudent(rows[0]);
 
-    const { name, level, description, avatar } = req.body || {};
+    const { name, level, description, domain, avatar } = req.body || {};
     const now = Date.now();
 
     if (typeof name === 'string' && name.trim()) s.name = name.trim().slice(0, 60);
     if (typeof description === 'string') s.description = description.slice(0, 240);
+    if (typeof domain === 'string') s.domain = domain.slice(0, 60);
     if (typeof avatar === 'string' || avatar === null) {
       s.avatar = await uploadAvatar(avatar);
     }
@@ -198,18 +210,22 @@ app.patch('/api/students/:id', requireAdmin, async (req, res) => {
         s.lastLevelUpAt = now;
         s.history = s.history || [];
         s.history.push({ level: lvl, at: now });
-        if (s.history.length > 100) s.history = s.history.slice(-100);
       }
     }
     s.lastUpdated = now;
 
     await pool.query(
-      `UPDATE students SET name=$1, description=$2, avatar=$3, level=$4,
-         last_updated=$5, last_level_up_at=$6, history=$7
-       WHERE id=$8`,
-      [s.name, s.description, s.avatar, s.level, s.lastUpdated, s.lastLevelUpAt,
-       JSON.stringify(s.history), s.id]
+      `UPDATE students
+       SET name = $1, level = $2, description = $3, domain = $4, avatar = $5,
+           last_updated = $6, last_level_up_at = $7, history = $8
+       WHERE id = $9`,
+      [
+        s.name, s.level, s.description, s.domain, s.avatar,
+        s.lastUpdated, s.lastLevelUpAt, JSON.stringify(s.history),
+        s.id
+      ]
     );
+
     res.json(withComputed(s));
   } catch (err) {
     console.error(err);

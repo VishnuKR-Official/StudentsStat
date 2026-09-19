@@ -6,6 +6,7 @@ create table if not exists students (
   name            text not null,
   level           integer not null default 1,
   description     text not null default '',
+  domain          text not null default '',
   avatar          text,                         -- base64 data URL or null
   created_at      bigint not null,               -- epoch ms, matches old JSON store
   last_updated    bigint not null,

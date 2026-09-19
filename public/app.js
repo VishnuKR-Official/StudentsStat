@@ -225,6 +225,7 @@
         <div class="who">
           <div class="name">${escapeHtml(s.name)}</div>
           <div class="tier-label">${tier.name}</div>
+          ${s.domain ? `<div class="domain-label" style="font-size:0.8rem;color:var(--color-text-muted);">${escapeHtml(s.domain)}</div>` : ''}
         </div>
       </div>
       <div class="level-row">
@@ -324,6 +325,7 @@
   const avatarFile = document.getElementById('avatarFile');
   const fName = document.getElementById('fName');
   const fLevel = document.getElementById('fLevel');
+  const fDomain = document.getElementById('fDomain');
   const fDesc = document.getElementById('fDesc');
 
   function openPanel(existing) {
@@ -331,6 +333,7 @@
     panelTitle.textContent = existing ? 'Edit student' : 'New student';
     fName.value = existing ? existing.name : '';
     fLevel.value = existing ? existing.level : 1;
+    fDomain.value = existing ? (existing.domain || '') : '';
     fDesc.value = existing ? (existing.description || '') : '';
     pendingAvatar = existing ? (existing.avatar || null) : null;
     avatarPicker.innerHTML = pendingAvatar ? `<img src="${pendingAvatar}" alt="">` : 'Photo';
@@ -340,7 +343,7 @@
   function closePanel() {
     editPanel.classList.remove('open');
     editingId = null; pendingAvatar = null;
-    fName.value = ''; fLevel.value = 1; fDesc.value = '';
+    fName.value = ''; fLevel.value = 1; fDesc.value = ''; fDomain.value = '';
     avatarPicker.innerHTML = 'Photo';
   }
   document.getElementById('btnToggleAdd').addEventListener('click', () => {
@@ -363,8 +366,9 @@
     let lvl = parseInt(fLevel.value, 10);
     if (isNaN(lvl)) lvl = 1;
     lvl = Math.min(MAX_LEVEL, Math.max(1, lvl));
+    const domain = fDomain.value.trim();
     const description = fDesc.value.trim();
-    const payload = { name, level: lvl, description, avatar: pendingAvatar };
+    const payload = { name, level: lvl, description, domain, avatar: pendingAvatar };
     try {
       if (editingId) {
         const updated = await api(`${API}/${editingId}`, {
