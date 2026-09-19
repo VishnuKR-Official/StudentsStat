@@ -303,6 +303,7 @@
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
         
+        alert("Registration successful! You have been automatically logged in.");
       } else {
         // Login
         const res = await fetch('/api/login', {
@@ -319,6 +320,8 @@
         currentUser = data.user;
         localStorage.setItem('authToken', authToken);
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        
+        alert("Login successful!");
       }
       authModal.classList.remove('open');
       authEmail.value = '';
