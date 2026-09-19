@@ -109,6 +109,7 @@
   const authCancel = document.getElementById('authCancel');
   const authEmail = document.getElementById('authEmail');
   const authPassword = document.getElementById('authPassword');
+  const authToggleVisibility = document.getElementById('authToggleVisibility');
   const authName = document.getElementById('authName');
   const authNameField = document.getElementById('authNameField');
 
@@ -245,6 +246,13 @@
   });
   
   authCancel.addEventListener('click', () => authModal.classList.remove('open'));
+  
+  if (authToggleVisibility) {
+    authToggleVisibility.addEventListener('click', () => {
+      const isPass = authPassword.type === 'password';
+      authPassword.type = isPass ? 'text' : 'password';
+    });
+  }
   
   authToggleMode.addEventListener('click', (e) => {
     e.preventDefault();
