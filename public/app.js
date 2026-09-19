@@ -235,7 +235,7 @@
         <div class="who">
           <div class="name">${escapeHtml(s.name)}</div>
           <div class="tier-label">${tier.name}</div>
-          ${s.domain ? `<div class="domain-label" style="font-size:0.8rem;color:var(--color-text-muted);">${escapeHtml(s.domain)}</div>` : ''}
+          <div class="domain-label" style="font-size:0.8rem;color:var(--color-text-muted);">${escapeHtml(s.domain || 'MERN')}</div>
         </div>
       </div>
       <div class="level-row">
@@ -312,7 +312,7 @@
       // Group by domains
       const domains = {};
       students.forEach(s => {
-        const d = (s.domain || 'Unspecified').trim();
+        const d = (s.domain || 'MERN').trim();
         domains[d] = (domains[d] || 0) + 1;
       });
       

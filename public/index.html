@@ -50,7 +50,16 @@
       </div>
       <div class="field">
         <label for="fDomain">Domain</label>
-        <input type="text" id="fDomain" placeholder="e.g. Science" maxlength="60">
+        <input type="text" id="fDomain" list="domainOptions" placeholder="Select or type..." maxlength="60">
+        <datalist id="domainOptions">
+          <option value="MERN">
+          <option value="Game Development">
+          <option value="Data Science">
+          <option value="Python Django">
+          <option value="Java Spring Boot">
+          <option value="Cyber Security">
+          <option value="UI/UX Design">
+        </datalist>
       </div>
       <div class="field" style="flex:1;">
         <label for="fDesc">Currently learning</label>
