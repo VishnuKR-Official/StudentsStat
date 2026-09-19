@@ -46,6 +46,14 @@
         <input type="text" id="fName" placeholder="Student name" maxlength="60">
       </div>
       <div class="field">
+        <label for="fEmail">Email (Mandatory)</label>
+        <input type="email" id="fEmail" placeholder="student@example.com" maxlength="100">
+      </div>
+      <div class="field">
+        <label for="fPassword">Password (Needed to Edit/Delete)</label>
+        <input type="password" id="fPassword" placeholder="Your password" maxlength="60">
+      </div>
+      <div class="field">
         <label for="fLevel">Level (1–52)</label>
         <input type="number" id="fLevel" min="1" max="52" value="1">
       </div>
@@ -63,7 +71,7 @@
       </div>
       <div class="field" style="flex:1;">
         <label for="fDesc">Currently learning</label>
-        <textarea id="fDesc" placeholder="e.g. Fractions, chapter 4 — long division" maxlength="240"></textarea>
+        <textarea id="fDesc" placeholder="e.g. React hooks" maxlength="240"></textarea>
       </div>
     </div>
     <div class="panel-actions">

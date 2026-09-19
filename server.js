@@ -247,17 +247,69 @@ app.get('/api/students', async (req, res) => {
     const { rows } = await withRetry(() =>
       pool.query('SELECT * FROM students ORDER BY level DESC, name ASC')
     );
-    res.json(rows.map(rowToStudent).map(withComputed));
+    // Don't leak passwords!
+    const safeRows = rows.map(r => {
+      delete r.password_hash;
+      return r;
+    });
+    res.json(safeRows.map(rowToStudent).map(withComputed));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'database error' });
   }
 });
 
-// Create a student (Admin Protected)
-app.post('/api/students', requireAdmin, async (req, res) => {
+// Helper to verify user or admin
+async function verifyUserOrAdmin(req, id) {
+  // If admin passcode provided, bypass
+  const adminPasscode = req.headers['x-admin-passcode'];
+  if (adminPasscode === ADMIN_PASSWORD) return true;
+  
+  // Otherwise verify user's password
+  const { password } = req.body || {};
+  if (!password) return false;
+  
+  const { rows } = await pool.query('SELECT password_hash FROM students WHERE id = $1', [id]);
+  if (!rows[0] || !rows[0].password_hash) return false;
+  
+  return await bcrypt.compare(password, rows[0].password_hash);
+}
+
+// Create a student
+app.post('/api/students', async (req, res) => {
   try {
-    const { name, level, description, domain, avatar } = req.body || {};
+    const { name, email, password, level, description, domain, avatar } = req.body || {};
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
+    if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
+    
+    const hash = await bcrypt.hash(password, 10);
+    const lvl = clampLevel(level);
+    const now = Date.now();
+    const avatarUrl = await uploadAvatar(avatar);
+    const student = {
+      id: uid(),
+      name: String(name).trim().slice(0, 60),
+      email: String(email).trim().slice(0, 100),
+      level: lvl,
+      description: (description || '').slice(0, 240),
+      domain: (domain || '').slice(0, 60),
+      avatar: avatarUrl || null,
+      createdAt: now,
+      lastUpdated: now,
+      lastLevelUpAt: now,
+      history: [{ level: lvl, at: now }],
+    };
+    await pool.query(
+      `INSERT INTO students
+        (id, name, email, password_hash, level, description, domain, avatar, created_at, last_updated, last_level_up_at, history)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [
+        student.id, student.name, student.email, hash, student.level, student.description, student.domain, student.avatar,
+        student.createdAt, student.lastUpdated, student.lastLevelUpAt,
+        JSON.stringify(student.history),
+      ]
+    );
+    res.status(201).json(withComputed(student));
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
     const lvl = clampLevel(level);
     const now = Date.now();
@@ -291,9 +343,12 @@ app.post('/api/students', requireAdmin, async (req, res) => {
   }
 });
 
-// Update a student (name / level / description / domain / avatar) (Admin Protected)
-app.patch('/api/students/:id', requireAdmin, async (req, res) => {
+// Update a student (name / level / description / domain / avatar)
+app.patch('/api/students/:id', async (req, res) => {
   try {
+    const isAuth = await verifyUserOrAdmin(req, req.params.id);
+    if (!isAuth) return res.status(401).json({ error: 'Unauthorized: Admin passcode or correct password required' });
+
     const { rows } = await pool.query('SELECT * FROM students WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'not found' });
     const s = rowToStudent(rows[0]);
@@ -341,6 +396,9 @@ app.patch('/api/students/:id', requireAdmin, async (req, res) => {
 // Bump level up/down by 1 (used by the +/- buttons)
 app.post('/api/students/:id/bump', async (req, res) => {
   try {
+    const isAuth = await verifyUserOrAdmin(req, req.params.id);
+    if (!isAuth) return res.status(401).json({ error: 'Unauthorized: Admin passcode or correct password required' });
+
     const { rows } = await pool.query('SELECT * FROM students WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'not found' });
     const s = rowToStudent(rows[0]);
@@ -369,9 +427,12 @@ app.post('/api/students/:id/bump', async (req, res) => {
   }
 });
 
-// Delete a student (Admin Protected)
-app.delete('/api/students/:id', requireAdmin, async (req, res) => {
+// Delete a student
+app.delete('/api/students/:id', async (req, res) => {
   try {
+    const isAuth = await verifyUserOrAdmin(req, req.params.id);
+    if (!isAuth) return res.status(401).json({ error: 'Unauthorized: Admin passcode or correct password required' });
+
     await pool.query('DELETE FROM delete_requests WHERE student_id = $1', [req.params.id]);
     const result = await pool.query('DELETE FROM students WHERE id = $1', [req.params.id]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'not found' });

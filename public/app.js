@@ -715,11 +715,16 @@
   }
 
   async function bump(id, dir) {
+    let password = null;
+    if (!adminPasscode) {
+      password = prompt("Enter your password to change level:");
+      if (!password) return;
+    }
     try {
       const updated = await api(`${API}/${id}/bump`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dir })
+        body: JSON.stringify({ dir, password })
       });
       students = students.map(s => s.id === id ? updated : s);
       render();
@@ -727,22 +732,24 @@
   }
 
   async function removeStudent(s) {
-    if (adminPasscode) {
-      if (!confirm(`Remove ${s.name} from the board? This can't be undone.`)) return;
-      try {
-        await api(`${API}/${s.id}`, { method: 'DELETE' });
-        students = students.filter(x => x.id !== s.id);
-        delete prevPositions[s.id];
-        render();
-      } catch (e) { alert('Could not delete: ' + e.message); }
-    } else {
-      if (!confirm(`Request admin to remove ${s.name} from the board?`)) return;
-      try {
-        const res = await fetch(`${API}/${s.id}/delete-request`, { method: 'POST' });
-        if (res.ok) alert('Delete request sent to admin.');
-        else alert('Could not send delete request.');
-      } catch (e) { alert('Could not request: ' + e.message); }
+    let password = null;
+    if (!adminPasscode) {
+      password = prompt(`Enter your password to delete ${s.name}:`);
+      if (!password) return;
     }
+    
+    if (!confirm(`Are you sure you want to permanently delete ${s.name}?`)) return;
+    
+    try {
+      await api(`${API}/${s.id}`, { 
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      students = students.filter(x => x.id !== s.id);
+      delete prevPositions[s.id];
+      render();
+    } catch (e) { alert('Could not delete: ' + e.message); }
   }
 
   function fileToDataUrl(file, cb) {
@@ -768,6 +775,8 @@
   const avatarPicker = document.getElementById('avatarPicker');
   const avatarFile = document.getElementById('avatarFile');
   const fName = document.getElementById('fName');
+  const fEmail = document.getElementById('fEmail');
+  const fPassword = document.getElementById('fPassword');
   const fLevel = document.getElementById('fLevel');
   const fDomain = document.getElementById('fDomain');
   const fDesc = document.getElementById('fDesc');
@@ -776,6 +785,9 @@
     editingId = existing ? existing.id : null;
     panelTitle.textContent = existing ? 'Edit student' : 'New student';
     fName.value = existing ? existing.name : '';
+    fEmail.value = existing ? (existing.email || '') : '';
+    fEmail.disabled = !!existing; // Can't change email easily right now
+    fPassword.value = '';
     fLevel.value = existing ? existing.level : 1;
     fDomain.value = existing ? (existing.domain || '') : '';
     fDesc.value = existing ? (existing.description || '') : '';
@@ -787,14 +799,10 @@
   function closePanel() {
     editPanel.classList.remove('open');
     editingId = null; pendingAvatar = null;
-    fName.value = ''; fLevel.value = 1; fDesc.value = ''; fDomain.value = '';
+    fName.value = ''; fEmail.value = ''; fPassword.value = ''; fLevel.value = 1; fDesc.value = ''; fDomain.value = '';
     avatarPicker.innerHTML = 'Photo';
   }
   document.getElementById('btnToggleAdd').addEventListener('click', () => {
-    if (!adminPasscode && localStorage.getItem('hasCreatedProfile')) {
-      alert('You have already created a student profile. Only one profile per visitor is allowed.');
-      return;
-    }
     editPanel.classList.contains('open') ? closePanel() : openPanel(null);
   });
   document.getElementById('btnCancel').addEventListener('click', closePanel);
@@ -807,12 +815,24 @@
   document.getElementById('btnSave').addEventListener('click', async () => {
     const name = fName.value.trim();
     if (!name) { fName.focus(); return; }
+    const email = fEmail.value.trim();
+    const password = fPassword.value.trim();
+    
+    if (!editingId && (!email || !password)) {
+      alert("Email and Password are required to create a user!");
+      return;
+    }
+    if (editingId && !password && !adminPasscode) {
+      alert("Password is required to edit your profile!");
+      return;
+    }
+
     let lvl = parseInt(fLevel.value, 10);
     if (isNaN(lvl)) lvl = 1;
     lvl = Math.min(MAX_LEVEL, Math.max(1, lvl));
     const domain = fDomain.value.trim();
     const description = fDesc.value.trim();
-    const payload = { name, level: lvl, description, domain, avatar: pendingAvatar };
+    const payload = { name, email, password, level: lvl, description, domain, avatar: pendingAvatar };
     try {
       if (editingId) {
         const updated = await api(`${API}/${editingId}`, {
