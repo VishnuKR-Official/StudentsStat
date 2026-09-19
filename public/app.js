@@ -514,12 +514,15 @@
       segs += `<i class="${s.level >= thresh ? 'on' : ''}"></i>`;
     }
     let canEdit = currentUser && (currentUser.role === 'admin' || currentUser.id === s.id);
+    let isOtherUser = currentUser && currentUser.id !== s.id;
+    let isAdminViewer = currentUser && currentUser.role === 'admin';
+    let showAdminControls = isAdminViewer && isOtherUser;
     
     card.innerHTML = `
       <div class="card-top">
         <div class="avatar" data-role="avatar">${s.avatar ? `<img src="${s.avatar}" alt="${escapeHtml(s.name)}">` : initials(s.name)}</div>
         <div class="who">
-          <div class="name">${escapeHtml(s.name)}</div>
+          <div class="name">${escapeHtml(s.name)} ${s.role === 'admin' ? '👑' : ''}</div>
           <div class="tier-label">${tier.name}</div>
           <div class="domain-label" style="font-size:0.8rem;color:var(--color-text-muted);">${escapeHtml(s.domain || 'MERN')}</div>
         </div>
@@ -532,15 +535,23 @@
       <div class="segments">${segs}</div>
       <div class="desc-line">${s.description ? escapeHtml(s.description) : ''}</div>
       ${canEdit ? `
-      <div class="card-controls">
-        <div class="lvl-btns">
-          <button data-act="dec" title="Level down">−</button>
-          <button data-act="inc" title="Level up">+</button>
+      <div class="card-controls" style="flex-direction: column; align-items: stretch; gap: 8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="lvl-btns">
+            <button data-act="dec" title="Level down">−</button>
+            <button data-act="inc" title="Level up">+</button>
+          </div>
+          <div class="card-menu">
+            <button class="small" data-act="edit">Edit</button>
+            <button class="small danger" data-act="delete">Delete</button>
+          </div>
         </div>
-        <div class="card-menu">
-          <button class="small" data-act="edit">Edit</button>
-          <button class="small danger" data-act="delete">Delete</button>
+        ${showAdminControls ? `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <button class="small ghost" data-act="role">${s.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}</button>
+          <button class="small danger" data-act="block">Block</button>
         </div>
+        ` : ''}
       </div>
       ` : ''}
     `;
@@ -553,6 +564,31 @@
       card.querySelector('[data-act="dec"]').addEventListener('click', () => bump(s.id, 'down'));
       card.querySelector('[data-act="delete"]').addEventListener('click', () => removeStudent(s));
       card.querySelector('[data-act="edit"]').addEventListener('click', () => openPanel(s));
+      
+      const roleBtn = card.querySelector('[data-act="role"]');
+      if (roleBtn) {
+        roleBtn.addEventListener('click', async () => {
+          if (!confirm(`Are you sure you want to ${s.role === 'admin' ? 'revoke' : 'grant'} admin privileges for ${s.name}?`)) return;
+          try {
+            await api(`/api/students/${s.id}/role`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ role: s.role === 'admin' ? 'student' : 'admin' })
+            });
+            loadStudents();
+          } catch(e) { alert(e.message); }
+        });
+      }
+
+      const blockBtn = card.querySelector('[data-act="block"]');
+      if (blockBtn) {
+        blockBtn.addEventListener('click', async () => {
+          if (!confirm(`Are you sure you want to permanently block ${s.name}? They will be removed from this batch and cannot join again.`)) return;
+          try {
+            await api(`/api/students/${s.id}/block`, { method: 'POST' });
+            loadStudents();
+          } catch(e) { alert(e.message); }
+        });
+      }
     }
     return card;
   }

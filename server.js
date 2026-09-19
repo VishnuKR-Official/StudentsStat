@@ -79,6 +79,7 @@ function rowToStudent(r) {
     description: r.description || '',
     domain: r.domain || '',
     avatar: r.avatar || null,
+    role: r.role || 'student',
     createdAt: Number(r.created_at),
     lastUpdated: Number(r.last_updated),
     lastLevelUpAt: Number(r.last_level_up_at),
@@ -198,7 +199,7 @@ app.post('/api/login', async (req, res) => {
       const bRes = await pool.query('SELECT * FROM batches WHERE id = $1', [user.batch_id]);
       if (bRes.rows.length > 0) {
         batchName = bRes.rows[0].name;
-        isBatchAdmin = bRes.rows[0].created_by === user.id;
+        isBatchAdmin = (bRes.rows[0].created_by === user.id) || (user.role === 'admin');
       }
     }
     
@@ -227,7 +228,7 @@ app.get('/api/me', authenticateToken, async (req, res) => {
       const bRes = await pool.query('SELECT * FROM batches WHERE id = $1', [user.batch_id]);
       if (bRes.rows.length > 0) {
         batchName = bRes.rows[0].name;
-        isBatchAdmin = bRes.rows[0].created_by === user.id;
+        isBatchAdmin = (bRes.rows[0].created_by === user.id) || (user.role === 'admin');
       }
     }
     
@@ -293,8 +294,8 @@ app.post('/api/batches', authenticateToken, async (req, res) => {
       [batchId, name, req.user.id, inviteCode, Date.now()]
     );
     await pool.query(
-      'UPDATE students SET batch_id = $1, batch_status = $2 WHERE id = $3',
-      [batchId, 'approved', req.user.id]
+      'UPDATE students SET batch_id = $1, batch_status = $2, role = $3 WHERE id = $4',
+      [batchId, 'approved', 'admin', req.user.id]
     );
 
     // Generate fresh token
@@ -342,11 +343,8 @@ app.get('/api/batches/my-batch', authenticateToken, async (req, res) => {
 
 app.get('/api/batches/pending', authenticateToken, async (req, res) => {
   if (!req.user.batch_id) return res.status(400).json({error: 'Not in a batch'});
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Only batch admin can view pending'});
   try {
-    const bRes = await pool.query('SELECT created_by FROM batches WHERE id = $1', [req.user.batch_id]);
-    if (bRes.rows.length === 0 || bRes.rows[0].created_by !== req.user.id) {
-      return res.status(403).json({error: 'Only batch admin can view pending'});
-    }
     const { rows } = await pool.query('SELECT id, name, email FROM students WHERE batch_id = $1 AND batch_status = $2', [req.user.batch_id, 'pending']);
     res.json(rows);
   } catch(err) {
@@ -356,11 +354,8 @@ app.get('/api/batches/pending', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/batches/approve/:studentId', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Only batch admin can approve'});
   try {
-    const bRes = await pool.query('SELECT created_by FROM batches WHERE id = $1', [req.user.batch_id]);
-    if (bRes.rows.length === 0 || bRes.rows[0].created_by !== req.user.id) {
-      return res.status(403).json({error: 'Only batch admin can approve'});
-    }
     await pool.query('UPDATE students SET batch_status = $1 WHERE id = $2 AND batch_id = $3', ['approved', req.params.studentId, req.user.batch_id]);
     res.json({ success: true });
   } catch(err) {
@@ -370,12 +365,51 @@ app.post('/api/batches/approve/:studentId', authenticateToken, async (req, res) 
 });
 
 app.post('/api/batches/reject/:studentId', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Only batch admin can reject'});
   try {
-    const bRes = await pool.query('SELECT created_by FROM batches WHERE id = $1', [req.user.batch_id]);
-    if (bRes.rows.length === 0 || bRes.rows[0].created_by !== req.user.id) {
-      return res.status(403).json({error: 'Only batch admin can reject'});
-    }
     await pool.query('UPDATE students SET batch_id = NULL, batch_status = NULL WHERE id = $1 AND batch_id = $2', [req.params.studentId, req.user.batch_id]);
+    res.json({ success: true });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
+app.post('/api/students/:id/role', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Only admin can change roles'});
+  try {
+    // Only allow setting role to 'admin' or 'student'
+    const newRole = req.body.role === 'admin' ? 'admin' : 'student';
+    // Ensure the target student is actually in the same batch
+    const { rows } = await pool.query('SELECT batch_id, role FROM students WHERE id = $1', [req.params.id]);
+    if (rows.length === 0 || rows[0].batch_id !== req.user.batch_id) {
+      return res.status(404).json({error: 'Student not found in your batch'});
+    }
+    // Prevent removing own admin privileges to avoid getting locked out, unless there's another admin? No need to overcomplicate.
+    if (req.params.id === req.user.id && newRole !== 'admin') {
+      return res.status(400).json({error: 'Cannot remove your own admin privileges'});
+    }
+    
+    await pool.query('UPDATE students SET role = $1 WHERE id = $2', [newRole, req.params.id]);
+    res.json({ success: true, role: newRole });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
+app.post('/api/students/:id/block', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({error: 'Only admin can block users'});
+  try {
+    const { rows } = await pool.query('SELECT batch_id FROM students WHERE id = $1', [req.params.id]);
+    if (rows.length === 0 || rows[0].batch_id !== req.user.batch_id) {
+      return res.status(404).json({error: 'Student not found in your batch'});
+    }
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({error: 'Cannot block yourself'});
+    }
+    
+    await pool.query('UPDATE students SET is_blocked = true, batch_id = NULL, batch_status = NULL WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch(err) {
     console.error(err);
@@ -454,6 +488,7 @@ app.patch('/api/students/:id', authenticateToken, async (req, res) => {
 
     const { rows } = await pool.query('SELECT * FROM students WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'not found' });
+    if (rows[0].batch_id !== req.user.batch_id) return res.status(403).json({ error: 'Unauthorized: Student not in your batch' });
     const s = rowToStudent(rows[0]);
 
     const { name, level, description, domain, avatar } = req.body || {};
@@ -505,6 +540,7 @@ app.post('/api/students/:id/bump', authenticateToken, async (req, res) => {
 
     const { rows } = await pool.query('SELECT * FROM students WHERE id = $1', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'not found' });
+    if (rows[0].batch_id !== req.user.batch_id) return res.status(403).json({ error: 'Unauthorized: Student not in your batch' });
     const s = rowToStudent(rows[0]);
 
     const dir = req.body && req.body.dir === 'down' ? -1 : 1;
@@ -537,6 +573,10 @@ app.delete('/api/students/:id', authenticateToken, async (req, res) => {
     if (!verifyUserOwnershipOrAdmin(req, req.params.id)) {
       return res.status(403).json({ error: 'Unauthorized: You can only delete your own profile' });
     }
+
+    const { rows } = await pool.query('SELECT batch_id FROM students WHERE id = $1', [req.params.id]);
+    if (!rows[0]) return res.status(404).json({ error: 'not found' });
+    if (rows[0].batch_id !== req.user.batch_id) return res.status(403).json({ error: 'Unauthorized: Student not in your batch' });
 
     await pool.query('DELETE FROM delete_requests WHERE student_id = $1', [req.params.id]);
     const result = await pool.query('DELETE FROM students WHERE id = $1', [req.params.id]);
