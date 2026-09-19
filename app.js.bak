@@ -27,9 +27,8 @@
     ctx.clearRect(0, 0, width, height);
     
     // Draw particles and lines
-    const isLanding = !authToken || !currentUser;
-    ctx.fillStyle = isLanding ? 'rgba(231, 183, 64, 0.5)' : 'rgba(0, 255, 204, 0.5)';
-    ctx.strokeStyle = isLanding ? 'rgba(231, 183, 64, 0.15)' : 'rgba(0, 255, 204, 0.15)';
+    ctx.fillStyle = 'rgba(0, 255, 204, 0.5)';
+    ctx.strokeStyle = 'rgba(0, 255, 204, 0.15)';
     ctx.lineWidth = 1;
 
     for (let i = 0; i < particles.length; i++) {
@@ -212,15 +211,6 @@
   }
 
   const btnLeaveBatch = document.getElementById('btnLeaveBatch');
-  const landingHero = document.getElementById('landingHero');
-  const appContent = document.getElementById('appContent');
-  const btnLandingLogin = document.getElementById('btnLandingLogin');
-  
-  if (btnLandingLogin) {
-    btnLandingLogin.addEventListener('click', () => {
-      btnLoginToggle.click();
-    });
-  }
 
   function updateAuthUI() {
     // Reset displays
@@ -234,9 +224,6 @@
     if (adminBadge) adminBadge.style.display = 'none';
     
     if (authToken && currentUser) {
-      if (landingHero) landingHero.style.display = 'none';
-      if (appContent) appContent.style.display = 'block';
-      
       btnLoginToggle.style.display = 'none';
       btnLogout.style.display = 'inline-block';
       
@@ -249,8 +236,6 @@
         batchSetupModal.classList.remove('open');
         btnInviteCode.style.display = 'inline-block';
         if (btnLeaveBatch) btnLeaveBatch.style.display = 'inline-block';
-        const btnOpenGroupChat = document.getElementById('btnOpenGroupChat');
-        if (btnOpenGroupChat) btnOpenGroupChat.style.display = 'inline-block';
         
         if (currentUser.role === 'admin') {
           if (adminBadge) adminBadge.style.display = 'inline-block';
@@ -264,9 +249,6 @@
           btnJoinRace.style.display = 'inline-block';
         }
       }
-    } else {
-      if (landingHero) landingHero.style.display = 'flex';
-      if (appContent) appContent.style.display = 'none';
     }
   }
 
@@ -582,14 +564,8 @@
       <div class="bar-outer"><div class="bar-inner" style="width:${pct}%"></div></div>
       <div class="segments">${segs}</div>
       <div class="desc-line">${s.description ? escapeHtml(s.description) : ''}</div>
-      <div class="social-icons">
-        ${s.github ? `<a href="${escapeHtml(s.github)}" target="_blank" title="GitHub">🐙</a>` : ''}
-        ${s.linkedin ? `<a href="${escapeHtml(s.linkedin)}" target="_blank" title="LinkedIn">💼</a>` : ''}
-        ${s.x_account ? `<a href="${escapeHtml(s.x_account)}" target="_blank" title="X (Twitter)">𝕏</a>` : ''}
-        ${isOtherUser ? `<button data-act="dm" title="Direct Message">💬</button>` : ''}
-      </div>
       ${canEdit ? `
-      <div class="card-controls" style="flex-direction: column; align-items: stretch; gap: 8px; margin-top: 10px;">
+      <div class="card-controls" style="flex-direction: column; align-items: stretch; gap: 8px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div class="lvl-btns">
             <button data-act="dec" title="Level down">−</button>
@@ -612,24 +588,6 @@
     const avatarEl = card.querySelector('[data-role="avatar"]');
     avatarEl.addEventListener('mouseenter', () => showTooltip(avatarEl, s));
     avatarEl.addEventListener('mouseleave', hideTooltip);
-    
-    const dmBtn = card.querySelector('[data-act="dm"]');
-    if (dmBtn) {
-      dmBtn.addEventListener('click', () => {
-        // Open chat panel, select DM tab, set recipient
-        const chatSidebar = document.getElementById('chatSidebar');
-        if (chatSidebar) {
-          chatSidebar.classList.add('open');
-          document.getElementById('tabDMs').click();
-          const dmRecipientSelect = document.getElementById('dmRecipientSelect');
-          if (dmRecipientSelect) {
-            dmRecipientSelect.value = s.id;
-            // update chat history view for new selection
-            dmRecipientSelect.dispatchEvent(new Event('change'));
-          }
-        }
-      });
-    }
 
     if (canEdit) {
       card.querySelector('[data-act="inc"]').addEventListener('click', () => bump(s.id, 'up'));
@@ -1009,31 +967,13 @@
   btnViewPie.addEventListener('click', () => setView('pie'));
   btnViewTrend.addEventListener('click', () => setView('trend'));
 
-  const searchBar = document.getElementById('searchBar');
-  if (searchBar) {
-    searchBar.addEventListener('input', render);
-  }
-
   function render() {
     grid.innerHTML = '';
-    const q = searchBar ? searchBar.value.toLowerCase() : '';
-    let filtered = students.slice();
-    if (q) {
-      filtered = filtered.filter(s => 
-        s.name.toLowerCase().includes(q) || 
-        s.level.toString().includes(q) || 
-        (s.domain && s.domain.toLowerCase().includes(q)) || 
-        (s.description && s.description.toLowerCase().includes(q))
-      );
-    }
-    
-    if (filtered.length === 0) {
+    if (students.length === 0) {
       emptyState.style.display = 'block';
-      if (students.length > 0) emptyState.innerHTML = '<h3>No matches found</h3>';
-      else emptyState.innerHTML = '<h3>No students yet</h3><div>Add your first student to start tracking levels.</div>';
     } else {
       emptyState.style.display = 'none';
-      filtered.sort((a, b) => b.level - a.level || a.name.localeCompare(b.name))
+      students.slice().sort((a, b) => b.level - a.level || a.name.localeCompare(b.name))
         .forEach(s => grid.appendChild(renderCard(s)));
     }
     renderTrack();
@@ -1100,9 +1040,6 @@
   const fLevel = document.getElementById('fLevel');
   const fDomain = document.getElementById('fDomain');
   const fDesc = document.getElementById('fDesc');
-  const fGithub = document.getElementById('fGithub');
-  const fLinkedin = document.getElementById('fLinkedin');
-  const fTwitter = document.getElementById('fTwitter');
 
   function openPanel(existing) {
     if (!existing) return; // Edit panel is now strictly for updating existing profiles
@@ -1112,9 +1049,6 @@
     fLevel.value = existing.level;
     fDomain.value = existing.domain || '';
     fDesc.value = existing.description || '';
-    fGithub.value = existing.github || '';
-    fLinkedin.value = existing.linkedin || '';
-    fTwitter.value = existing.x_account || '';
     pendingAvatar = existing.avatar || null;
     avatarPicker.innerHTML = pendingAvatar ? `<img src="${pendingAvatar}" alt="">` : 'Photo';
     editPanel.classList.add('open');
@@ -1124,7 +1058,6 @@
     editPanel.classList.remove('open');
     editingId = null; pendingAvatar = null;
     fName.value = ''; fLevel.value = 1; fDesc.value = ''; fDomain.value = '';
-    fGithub.value = ''; fLinkedin.value = ''; fTwitter.value = '';
     avatarPicker.innerHTML = 'Photo';
   }
   
@@ -1155,10 +1088,7 @@
     lvl = Math.min(MAX_LEVEL, Math.max(1, lvl));
     const domain = fDomain.value.trim();
     const description = fDesc.value.trim();
-    const github = fGithub.value.trim();
-    const linkedin = fLinkedin.value.trim();
-    const x_account = fTwitter.value.trim();
-    const payload = { name, level: lvl, description, domain, github, linkedin, x_account, avatar: pendingAvatar };
+    const payload = { name, level: lvl, description, domain, avatar: pendingAvatar };
     
     try {
       if (editingId) {
@@ -1168,7 +1098,7 @@
         students = students.map(s => s.id === editingId ? updated : s);
         closePanel(); render();
       }
-    } catch (e) { showMessage('Error', e.message); }
+    } catch (e) { alert('Could not save: ' + e.message); }
   });
   fName.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('btnSave').click(); });
 
@@ -1184,36 +1114,16 @@
       try {
         const data = JSON.parse(ev.target.result);
         if (!Array.isArray(data)) throw new Error('bad format');
-        const merge = await askConfirm('Import Option', 'Merge with current students? Cancel to replace the board entirely.');
+        const merge = confirm('Merge with current students? Cancel to replace the board entirely.');
         students = await api(`/api/import?mode=${merge ? 'merge' : 'replace'}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
         });
         render();
-      } catch (err) { showMessage('Import Error', 'That file could not be imported: ' + err.message); }
+      } catch (err) { alert('That file could not be imported: ' + err.message); }
     };
     reader.readAsText(file);
     importFile.value = '';
   });
-
-  const btnLeaveBatch = document.getElementById('btnLeaveBatch');
-  if (btnLeaveBatch) {
-    btnLeaveBatch.addEventListener('click', async () => {
-      if (!(await askConfirm('Leave Batch', 'Are you sure you want to leave this batch?'))) return;
-      try {
-        await api('/api/batches/leave', { method: 'POST' });
-        currentUser.batch_id = null;
-        currentUser.batch_status = null;
-        currentUser.batch_name = null;
-        currentUser.role = 'student';
-        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        students = [];
-        updateAuthUI();
-        render();
-      } catch(e) {
-        showMessage('Error', e.message);
-      }
-    });
-  }
 
 
   // Batch Event Listeners
@@ -1306,186 +1216,6 @@
   btnManageApprovalsClose.addEventListener('click', () => {
     manageApprovalsModal.classList.remove('open');
   });
-
-  // --- CHAT LOGIC ---
-  let socket = null;
-  
-  function initChat() {
-    if (socket) {
-      socket.disconnect();
-    }
-    
-    if (!authToken || !currentUser || !currentUser.batch_id) return;
-    
-    // Check if io is defined (from the script tag)
-    if (typeof io === 'undefined') return;
-    
-    socket = io({ auth: { token: authToken } });
-    
-    const chatSidebar = document.getElementById('chatSidebar');
-    const btnCloseChat = document.getElementById('btnCloseChat');
-    const tabGroupChat = document.getElementById('tabGroupChat');
-    const tabDMs = document.getElementById('tabDMs');
-    const groupChatView = document.getElementById('groupChatView');
-    const dmChatView = document.getElementById('dmChatView');
-    const dmRecipientSelect = document.getElementById('dmRecipientSelect');
-    
-    const groupMessages = document.getElementById('groupMessages');
-    const dmMessages = document.getElementById('dmMessages');
-    
-    const groupMsgInput = document.getElementById('groupMsgInput');
-    const btnSendGroup = document.getElementById('btnSendGroup');
-    const dmMsgInput = document.getElementById('dmMsgInput');
-    const btnSendDm = document.getElementById('btnSendDm');
-    
-    let allMessages = [];
-    
-    function renderMessages() {
-      // Group Chat
-      groupMessages.innerHTML = '';
-      const groupMsgs = allMessages.filter(m => !m.receiver_id);
-      groupMsgs.forEach(m => {
-        const div = document.createElement('div');
-        div.className = `chat-message ${m.sender_id === currentUser.id ? 'sent' : 'received'}`;
-        const sender = students.find(s => s.id === m.sender_id);
-        div.innerHTML = `<strong>${m.sender_id === currentUser.id ? 'You' : escapeHtml(sender ? sender.name : 'Unknown')}</strong>: ${escapeHtml(m.content)}`;
-        groupMessages.appendChild(div);
-      });
-      groupMessages.scrollTop = groupMessages.scrollHeight;
-      
-      // DMs
-      dmMessages.innerHTML = '';
-      const selectedUserId = dmRecipientSelect.value;
-      if (selectedUserId) {
-        dmMsgInput.disabled = false;
-        btnSendDm.disabled = false;
-        const privateMsgs = allMessages.filter(m => 
-          (m.sender_id === currentUser.id && m.receiver_id === selectedUserId) ||
-          (m.sender_id === selectedUserId && m.receiver_id === currentUser.id)
-        );
-        privateMsgs.forEach(m => {
-          const div = document.createElement('div');
-          div.className = `chat-message ${m.sender_id === currentUser.id ? 'sent' : 'received'}`;
-          const sender = students.find(s => s.id === m.sender_id);
-          div.innerHTML = `<strong>${m.sender_id === currentUser.id ? 'You' : escapeHtml(sender ? sender.name : 'Unknown')}</strong>: ${escapeHtml(m.content)}`;
-          dmMessages.appendChild(div);
-        });
-        dmMessages.scrollTop = dmMessages.scrollHeight;
-      } else {
-        dmMsgInput.disabled = true;
-        btnSendDm.disabled = true;
-        dmMessages.innerHTML = '<div style="text-align:center; color:var(--muted); margin-top:20px;">Select a user to message</div>';
-      }
-    }
-    
-    function populateDMSelect() {
-      const currentVal = dmRecipientSelect.value;
-      dmRecipientSelect.innerHTML = '<option value="">Select a user...</option>';
-      students.forEach(s => {
-        if (s.id !== currentUser.id) {
-          const opt = document.createElement('option');
-          opt.value = s.id;
-          opt.textContent = s.name;
-          dmRecipientSelect.appendChild(opt);
-        }
-      });
-      if (currentVal) dmRecipientSelect.value = currentVal;
-    }
-    
-    // Need to trigger populate on student list updates
-    const oldRender = render;
-    render = function() {
-      oldRender();
-      if (dmRecipientSelect) populateDMSelect();
-    };
-    
-    dmRecipientSelect.addEventListener('change', renderMessages);
-    
-    socket.on('connect', () => {
-      socket.emit('fetch_messages');
-    });
-    
-    socket.on('recent_messages', (msgs) => {
-      allMessages = msgs;
-      renderMessages();
-    });
-    
-    socket.on('new_message', (msg) => {
-      allMessages.push(msg);
-      renderMessages();
-    });
-    
-    function sendMsg(content, receiver_id = null) {
-      if (!content) return;
-      socket.emit('send_message', { content, receiver_id });
-    }
-    
-    btnSendGroup.addEventListener('click', () => {
-      sendMsg(groupMsgInput.value.trim());
-      groupMsgInput.value = '';
-    });
-    groupMsgInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') btnSendGroup.click();
-    });
-    
-    btnSendDm.addEventListener('click', () => {
-      sendMsg(dmMsgInput.value.trim(), dmRecipientSelect.value);
-      dmMsgInput.value = '';
-    });
-    dmMsgInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') btnSendDm.click();
-    });
-    
-    // UI Toggles
-    const btnOpenGroupChat = document.getElementById('btnOpenGroupChat');
-    if (btnOpenGroupChat) {
-      btnOpenGroupChat.addEventListener('click', () => {
-        chatSidebar.classList.add('open');
-        tabGroupChat.click();
-      });
-    }
-    
-    btnCloseChat.addEventListener('click', () => {
-      chatSidebar.classList.remove('open');
-    });
-    
-    tabGroupChat.addEventListener('click', () => {
-      tabGroupChat.classList.add('active');
-      tabDMs.classList.remove('active');
-      groupChatView.classList.add('active');
-      dmChatView.classList.remove('active');
-      renderMessages();
-    });
-    
-    tabDMs.addEventListener('click', () => {
-      tabDMs.classList.add('active');
-      tabGroupChat.classList.remove('active');
-      dmChatView.classList.add('active');
-      groupChatView.classList.remove('active');
-      renderMessages();
-    });
-  }
-
-  // Hook initChat into the startup sequence
-  const oldInit = init;
-  init = async function() {
-    await oldInit();
-    initChat();
-  };
-  
-  // Also re-init chat when auth token changes
-  const oldUpdateAuth = updateAuthUI;
-  updateAuthUI = function() {
-    oldUpdateAuth();
-    if (authToken && currentUser && currentUser.batch_id) {
-       // Only init if socket isn't already connected to the right batch
-       if (!socket || !socket.connected) {
-         initChat();
-       }
-    } else {
-      if (socket) socket.disconnect();
-    }
-  };
 
   init();
   // Refresh periodically so streak/emoji state (and other people's edits) stay current

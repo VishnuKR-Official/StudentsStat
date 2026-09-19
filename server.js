@@ -81,6 +81,9 @@ function rowToStudent(r) {
     description: r.description || '',
     domain: r.domain || '',
     avatar: r.avatar || null,
+    github: r.github || '',
+    linkedin: r.linkedin || '',
+    x_account: r.x_account || '',
     role: r.role || 'student',
     createdAt: Number(r.created_at),
     lastUpdated: Number(r.last_updated),
@@ -457,7 +460,7 @@ function verifyUserOwnershipOrAdmin(req, id) {
 // Create a student
 app.post('/api/students', async (req, res) => {
   try {
-    const { name, email, password, level, description, domain, avatar } = req.body || {};
+    const { name, email, password, level, description, domain, avatar, github, linkedin, x_account } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
     if (!email || !password) return res.status(400).json({ error: 'email and password are required' });
     
@@ -473,6 +476,9 @@ app.post('/api/students', async (req, res) => {
       description: (description || '').slice(0, 240),
       domain: (domain || '').slice(0, 60),
       avatar: avatarUrl || null,
+      github: (github || '').slice(0, 255),
+      linkedin: (linkedin || '').slice(0, 255),
+      x_account: (x_account || '').slice(0, 255),
       createdAt: now,
       lastUpdated: now,
       lastLevelUpAt: now,
@@ -480,10 +486,11 @@ app.post('/api/students', async (req, res) => {
     };
     await pool.query(
       `INSERT INTO students
-        (id, name, email, password_hash, level, description, domain, avatar, created_at, last_updated, last_level_up_at, history)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        (id, name, email, password_hash, level, description, domain, avatar, github, linkedin, x_account, created_at, last_updated, last_level_up_at, history)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
         student.id, student.name, student.email, hash, student.level, student.description, student.domain, student.avatar,
+        student.github, student.linkedin, student.x_account,
         student.createdAt, student.lastUpdated, student.lastLevelUpAt,
         JSON.stringify(student.history),
       ]
@@ -495,7 +502,7 @@ app.post('/api/students', async (req, res) => {
   }
 });
 
-// Update a student (name / level / description / domain / avatar)
+// Update a student (name / level / description / domain / avatar / social)
 app.patch('/api/students/:id', authenticateToken, async (req, res) => {
   try {
     if (!verifyUserOwnershipOrAdmin(req, req.params.id)) {
@@ -507,12 +514,15 @@ app.patch('/api/students/:id', authenticateToken, async (req, res) => {
     if (rows[0].batch_id !== req.user.batch_id) return res.status(403).json({ error: 'Unauthorized: Student not in your batch' });
     const s = rowToStudent(rows[0]);
 
-    const { name, level, description, domain, avatar } = req.body || {};
+    const { name, level, description, domain, avatar, github, linkedin, x_account } = req.body || {};
     const now = Date.now();
 
     if (typeof name === 'string' && name.trim()) s.name = name.trim().slice(0, 60);
     if (typeof description === 'string') s.description = description.slice(0, 240);
     if (typeof domain === 'string') s.domain = domain.slice(0, 60);
+    if (typeof github === 'string') s.github = github.slice(0, 255);
+    if (typeof linkedin === 'string') s.linkedin = linkedin.slice(0, 255);
+    if (typeof x_account === 'string') s.x_account = x_account.slice(0, 255);
     if (typeof avatar === 'string' || avatar === null) {
       s.avatar = await uploadAvatar(avatar);
     }
@@ -531,10 +541,12 @@ app.patch('/api/students/:id', authenticateToken, async (req, res) => {
     await pool.query(
       `UPDATE students
        SET name = $1, level = $2, description = $3, domain = $4, avatar = $5,
-           last_updated = $6, last_level_up_at = $7, history = $8
-       WHERE id = $9`,
+           github = $6, linkedin = $7, x_account = $8,
+           last_updated = $9, last_level_up_at = $10, history = $11
+       WHERE id = $12`,
       [
         s.name, s.level, s.description, s.domain, s.avatar,
+        s.github, s.linkedin, s.x_account,
         s.lastUpdated, s.lastLevelUpAt, JSON.stringify(s.history),
         s.id
       ]

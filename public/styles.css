@@ -244,3 +244,49 @@ footer{max-width:1080px;margin:40px auto 0;color:var(--muted);font-size:0.78rem;
   font-size: 0.75rem; font-weight: bold; width: 22px; height: 22px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
 }
+
+/* Landing Hero */
+.landing-hero {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 80vh; text-align: center; color: var(--text);
+}
+.landing-hero p { font-size: 1.2rem; color: var(--muted); margin-bottom: 30px; }
+.glitch {
+  font-family: 'Rajdhani', sans-serif; font-size: 5rem; font-weight: 700;
+  color: var(--teal); position: relative; display: inline-block;
+}
+.glitch::before, .glitch::after {
+  content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+}
+.glitch::before {
+  left: 2px; text-shadow: -2px 0 var(--rose); clip: rect(24px, 550px, 90px, 0); animation: glitch-anim 2s infinite linear alternate-reverse;
+}
+.glitch::after {
+  left: -2px; text-shadow: -2px 0 var(--gold); clip: rect(85px, 550px, 140px, 0); animation: glitch-anim 2.5s infinite linear alternate-reverse;
+}
+@keyframes glitch-anim {
+  0% { clip: rect(10px, 9999px, 80px, 0); }
+  20% { clip: rect(30px, 9999px, 10px, 0); }
+  40% { clip: rect(60px, 9999px, 90px, 0); }
+  60% { clip: rect(90px, 9999px, 30px, 0); }
+  80% { clip: rect(20px, 9999px, 100px, 0); }
+  100% { clip: rect(50px, 9999px, 40px, 0); }
+}
+
+/* Neon Input for Search */
+.neon-input {
+  background: var(--panel); border: 1px solid var(--teal); border-radius: 20px;
+  padding: 10px 20px; color: var(--text); font-size: 1rem; outline: none;
+  box-shadow: 0 0 10px rgba(62, 214, 160, 0.2); transition: box-shadow 0.3s;
+}
+.neon-input:focus { box-shadow: 0 0 15px rgba(62, 214, 160, 0.5); }
+
+/* Social Icons */
+.social-icons {
+  display: flex; gap: 8px; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; justify-content: space-around;
+}
+.social-icons a, .social-icons button {
+  background: none; border: none; font-size: 1.1rem; text-decoration: none;
+  cursor: pointer; opacity: 0.7; transition: opacity 0.2s, transform 0.2s;
+}
+.social-icons a:hover, .social-icons button:hover { opacity: 1; transform: scale(1.2); }

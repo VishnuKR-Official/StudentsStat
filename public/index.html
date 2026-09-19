@@ -16,191 +16,207 @@
 <body>
 <canvas id="bgCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1;"></canvas>
 <div class="wrap">
-
-  <header class="top">
-    <div class="title-block">
-      <h1>Rank <span>Board</span></h1>
-      <div id="motivationalTagline" class="tagline"></div>
-      <p>Track progress across 52 levels. Hover a profile for what they're currently learning.</p>
-      <div class="mode-badge" id="modeBadge">Connecting…</div>
-    </div>
-    <div class="stats">
-      <div class="stat"><div class="n" id="statCount">0</div><div class="l">Students</div></div>
-      <div class="stat"><div class="n" id="statAvg">0</div><div class="l">Avg. level</div></div>
-      <div class="stat"><div class="n" id="statMax">0</div><div class="l">Level 52</div></div>
-    </div>
-  </header>
-
-  <div class="toolbar" id="toolbar">
-    <button class="primary" id="btnJoinRace" style="display:none;">+ Join Race</button>
-    <button class="ghost small" id="btnLoginToggle">Login / Register</button>
-    
-    <!-- Batch specific toolbar items -->
-    <button class="ghost small" id="btnInviteCode" style="display:none;" title="Copy Invite Link">🔗 Invite</button>
-    <button class="ghost small" id="btnManageApprovals" style="display:none;">👥 Approvals</button>
-    
-    <span id="adminBadge" style="display:none; color:var(--gold); font-weight:bold; margin-right:15px; margin-left:15px;">👑 Admin</span>
-    <button class="ghost small" id="btnLeaveBatch" style="display:none; color: var(--neon-red); border-color: var(--neon-red);">Leave Batch</button>
-    <button class="ghost small" id="btnLogout" style="display:none;">Logout</button>
-    
-    <!-- Hide export/import for now to clean up UI, or leave them for global admin? Let's leave them but hidden unless admin -->
-    <button class="ghost small" id="btnExport" style="display:none;">Export backup</button>
-    <button class="ghost small" id="btnImportTrigger" style="display:none;">Import backup</button>
-    <input type="file" id="importFile" accept="application/json">
+  <div id="landingHero" class="landing-hero" style="display:block;">
+    <h1 class="glitch" data-text="RANK BOARD">RANK BOARD</h1>
+    <p>The Ultimate Cyberpunk Tracking Experience</p>
+    <button class="primary large" id="btnLandingLogin">Enter the Grid</button>
   </div>
 
-  <!-- Auth Modal -->
-  <div class="modal-overlay" id="authModal">
-    <div class="modal-box">
-      <h3>Login / Register</h3>
-      <p style="color:var(--color-text-muted); font-size:0.9rem; margin-bottom:15px;">Create an account to join the race, or login to update your level.</p>
-      <div class="field">
-        <label>Email</label>
-        <input type="email" id="authEmail" placeholder="student@example.com">
+  <div id="appContent" style="display:none;">
+    <header class="top">
+      <div class="title-block">
+        <h1>Rank <span>Board</span></h1>
+        <div id="motivationalTagline" class="tagline"></div>
+        <p>Track progress across 52 levels. Hover a profile for what they're currently learning.</p>
+        <div class="mode-badge" id="modeBadge">Connecting…</div>
       </div>
-      <div class="field">
-        <label>Password</label>
-        <div style="position: relative; display: flex; align-items: center;">
-          <input type="password" id="authPassword" placeholder="••••••••" style="width: 100%; padding-right: 40px;">
-          <span id="authToggleVisibility" style="position: absolute; right: 10px; cursor: pointer; font-size: 1.2rem; user-select: none;" title="Toggle Password Visibility">👁️</span>
-        </div>
+      <div class="stats">
+        <div class="stat"><div class="n" id="statCount">0</div><div class="l">Students</div></div>
+        <div class="stat"><div class="n" id="statAvg">0</div><div class="l">Avg. level</div></div>
+        <div class="stat"><div class="n" id="statMax">0</div><div class="l">Level 52</div></div>
       </div>
-      <div class="field" id="authNameField" style="display:none;">
-        <label>Name (for Registration)</label>
-        <input type="text" id="authName" placeholder="Your full name">
-      </div>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-        <a href="#" id="authToggleMode" style="color:var(--color-primary); font-size:0.85rem;">Need an account? Register</a>
-        <div>
-          <button class="ghost small" id="authCancel">Cancel</button>
-          <button class="primary small" id="authSubmit">Login</button>
-        </div>
-      </div>
-    </div>
-  </div>
+    </header>
 
-  <!-- Message Modal -->
-  <div class="modal-overlay" id="messageModal" style="z-index: 200;">
-    <div class="modal-box" style="text-align: center;">
-      <h3 id="messageTitle">Success</h3>
-      <p id="messageBody" style="font-size: 1.1rem; color: #fff; margin-bottom: 20px;">Message here</p>
-      <button class="primary" id="btnMessageClose" style="width: 100%;">OK</button>
-    </div>
-  </div>
-
-  <!-- Batch Setup Modal -->
-  <div class="modal-overlay" id="batchSetupModal">
-    <div class="modal-box">
-      <h3>Welcome to Rank Board</h3>
-      <p>To continue, you must either join an existing batch or create a new one.</p>
+    <div class="toolbar" id="toolbar">
+      <button class="primary" id="btnJoinRace" style="display:none;">+ Join Race</button>
+      <button class="ghost small" id="btnLoginToggle">Login / Register</button>
       
-      <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-        <h4 style="margin: 0 0 10px; color: var(--teal);">Have an invite code?</h4>
-        <div class="field" style="display:flex; gap:10px;">
-          <input type="text" id="joinBatchCode" placeholder="Enter code (e.g. A1B2C3)" style="flex:1;">
-          <button class="primary small" id="btnSubmitJoinBatch">Join</button>
+      <!-- Batch specific toolbar items -->
+      <button class="ghost small" id="btnInviteCode" style="display:none;" title="Copy Invite Link">🔗 Invite</button>
+      <button class="ghost small" id="btnManageApprovals" style="display:none;">👥 Approvals</button>
+      <button class="ghost small" id="btnOpenGroupChat" style="display:none; color: var(--teal); border-color: var(--teal);">💬 Group Chat</button>
+      
+      <span id="adminBadge" style="display:none; color:var(--gold); font-weight:bold; margin-right:15px; margin-left:15px;">👑 Admin</span>
+      <button class="ghost small" id="btnLeaveBatch" style="display:none; color: var(--neon-red); border-color: var(--neon-red);">Leave Batch</button>
+      <button class="ghost small" id="btnLogout" style="display:none;">Logout</button>
+      
+      <!-- Hide export/import for now to clean up UI, or leave them for global admin? Let's leave them but hidden unless admin -->
+      <button class="ghost small" id="btnExport" style="display:none;">Export backup</button>
+      <button class="ghost small" id="btnImportTrigger" style="display:none;">Import backup</button>
+      <input type="file" id="importFile" accept="application/json">
+    </div>
+
+    <!-- Auth Modal -->
+    <div class="modal-overlay" id="authModal">
+      <div class="modal-box">
+        <h3>Login / Register</h3>
+        <p style="color:var(--color-text-muted); font-size:0.9rem; margin-bottom:15px;">Create an account to join the race, or login to update your level.</p>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="authEmail" placeholder="student@example.com">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <div style="position: relative; display: flex; align-items: center;">
+            <input type="password" id="authPassword" placeholder="••••••••" style="width: 100%; padding-right: 40px;">
+            <button type="button" id="btnTogglePassword" class="ghost small" style="position: absolute; right: 5px; padding: 2px 8px; border: none; background: transparent; font-size: 1.2rem;" title="Show Password">👁️</button>
+          </div>
+        </div>
+        <div id="registerFields" style="display:none;">
+          <div class="field">
+            <label>Name</label>
+            <input type="text" id="authName" placeholder="Your name">
+          </div>
+        </div>
+        <div class="modal-actions" style="justify-content: space-between; align-items: center;">
+          <a href="#" id="authModeToggle" style="color:var(--teal); font-size:0.85rem; text-decoration:none;">Need an account? Register</a>
+          <div style="display:flex; gap:10px;">
+            <button class="ghost" id="btnAuthCancel">Cancel</button>
+            <button class="primary" id="btnAuthSubmit">Login</button>
+          </div>
         </div>
       </div>
+    </div>
 
-      <div style="text-align: center; margin: 10px 0; color: var(--muted);">OR</div>
-
-      <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;">
-        <h4 style="margin: 0 0 10px; color: var(--gold);">Create a new batch</h4>
-        <div class="field" style="display:flex; gap:10px;">
-          <input type="text" id="createBatchName" placeholder="Batch name (e.g. React 2026)" style="flex:1;">
-          <button class="primary small" id="btnSubmitCreateBatch">Create</button>
+    <!-- Batch Setup Modal -->
+    <div class="modal-overlay" id="batchSetupModal">
+      <div class="modal-box" style="max-width: 500px;">
+        <h3>Batch Setup</h3>
+        <p>You need to join or create a batch to participate in the race.</p>
+        
+        <div style="margin-bottom: 20px; border-bottom: 1px solid var(--line); padding-bottom: 20px;">
+          <h4 style="margin-top: 0; color: var(--teal);">Join an Existing Batch</h4>
+          <div style="display:flex; gap:10px;">
+            <input type="text" id="joinBatchCode" placeholder="Enter Invite Code (e.g. abc-123)" style="flex:1;">
+            <button class="primary small" id="btnSubmitJoinBatch">Join</button>
+          </div>
+        </div>
+        
+        <div>
+          <h4 style="margin-top: 0; color: var(--gold);">Create a New Batch</h4>
+          <div style="display:flex; gap:10px;">
+            <input type="text" id="createBatchName" placeholder="Batch name (e.g. React 2026)" style="flex:1;">
+            <button class="primary small" id="btnSubmitCreateBatch">Create</button>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- Manage Approvals Modal -->
+    <div class="modal-overlay" id="manageApprovalsModal">
+      <div class="modal-box" style="max-width: 500px;">
+        <h3>Manage Approvals</h3>
+        <p>The following users want to join your batch.</p>
+        <div id="pendingUsersList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px; display:flex; flex-direction:column; gap:10px;">
+          <!-- Pending users rendered here -->
+        </div>
+        <div class="modal-actions">
+          <button class="ghost" id="btnManageApprovalsClose">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="editPanel">
+      <h3 id="panelTitle">New student</h3>
+      <div class="panel-row">
+        <div class="avatar-picker" id="avatarPicker">Photo</div>
+        <input type="file" id="avatarFile" accept="image/*">
+        <div class="field">
+          <label for="fName">Name</label>
+          <input type="text" id="fName" placeholder="Student name" maxlength="60">
+        </div>
+        <div class="field">
+          <label for="fLevel">Level (1–52)</label>
+          <input type="number" id="fLevel" min="1" max="52" value="1">
+        </div>
+        <div class="field">
+          <label for="fDomain">Domain</label>
+          <input type="text" id="fDomain" list="domainOptions" placeholder="Select or type..." maxlength="60">
+          <datalist id="domainOptions">
+            <option value="MERN">
+            <option value="python django">
+            <option value="Ai/ML">
+            <option value="cyber security">
+            <option value="data science">
+            <option value="game development">
+          </datalist>
+        </div>
+        <div class="field" style="flex:1;">
+          <label for="fDesc">Currently learning</label>
+          <textarea id="fDesc" placeholder="e.g. React hooks" maxlength="240"></textarea>
+        </div>
+        <!-- Social links -->
+        <div class="field">
+          <label for="fGithub">GitHub URL</label>
+          <input type="text" id="fGithub" placeholder="https://github.com/..." maxlength="255">
+        </div>
+        <div class="field">
+          <label for="fLinkedin">LinkedIn URL</label>
+          <input type="text" id="fLinkedin" placeholder="https://linkedin.com/in/..." maxlength="255">
+        </div>
+        <div class="field">
+          <label for="fTwitter">X (Twitter) URL</label>
+          <input type="text" id="fTwitter" placeholder="https://x.com/..." maxlength="255">
+        </div>
+      </div>
+      <div class="panel-actions">
+        <button class="primary" id="btnSave">Save</button>
+        <button class="ghost" id="btnCancel">Cancel</button>
+      </div>
+    </div>
+
+    <div class="track-section">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h2>Milestone track</h2>
+        <div class="chart-toggles">
+          <button class="ghost small active" id="btnViewTrack">Track</button>
+          <button class="ghost small" id="btnViewRace">Race</button>
+          <button class="ghost small" id="btnViewSteps">Steps</button>
+          <button class="ghost small" id="btnViewBar">Bar</button>
+          <button class="ghost small" id="btnViewPie">Pie</button>
+          <button class="ghost small" id="btnViewTrend">Trend</button>
+        </div>
+      </div>
+      <p class="track-hint">Visualize student progress across levels.</p>
+      
+      <div id="viewTrackContainer">
+        <div class="track-wrap"><div class="track" id="track"></div></div>
+      </div>
+      
+      <div id="viewRaceContainer" style="display:none; margin-top: 20px;">
+        <div id="raceTrack" style="display:flex; flex-direction:column; gap:10px;"></div>
+      </div>
+
+      <div id="viewStepsContainer" style="display:none; margin-top: 20px;">
+        <div id="stepsToSuccess" style="position:relative; width:100%; min-height:800px; background:var(--color-bg-secondary); border-radius:10px; padding:20px; overflow:hidden;"></div>
+      </div>
+
+      <div id="viewChartContainer" style="display:none; width: 100%; height: 300px; margin-top: 20px;">
+        <canvas id="statsChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div style="margin: 20px 0; text-align: center;">
+      <input type="text" id="searchBar" placeholder="Search students, skills, levels..." class="neon-input" style="width: 100%; max-width: 400px;">
+    </div>
+
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="emptyState" style="display:none;">
+      <h3>No students yet</h3>
+      <div>Add your first student to start tracking levels.</div>
+    </div>
   </div>
-
-  <!-- Manage Approvals Modal -->
-  <div class="modal-overlay" id="manageApprovalsModal">
-    <div class="modal-box" style="max-width: 500px;">
-      <h3>Manage Approvals</h3>
-      <p>The following users want to join your batch.</p>
-      <div id="pendingUsersList" style="max-height: 300px; overflow-y: auto; margin-bottom: 15px; display:flex; flex-direction:column; gap:10px;">
-        <!-- Pending users rendered here -->
-      </div>
-      <div class="modal-actions">
-        <button class="ghost" id="btnManageApprovalsClose">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="panel" id="editPanel">
-    <h3 id="panelTitle">New student</h3>
-    <div class="panel-row">
-      <div class="avatar-picker" id="avatarPicker">Photo</div>
-      <input type="file" id="avatarFile" accept="image/*">
-      <div class="field">
-        <label for="fName">Name</label>
-        <input type="text" id="fName" placeholder="Student name" maxlength="60">
-      </div>
-      <div class="field">
-        <label for="fLevel">Level (1–52)</label>
-        <input type="number" id="fLevel" min="1" max="52" value="1">
-      </div>
-      <div class="field">
-        <label for="fDomain">Domain</label>
-        <input type="text" id="fDomain" list="domainOptions" placeholder="Select or type..." maxlength="60">
-        <datalist id="domainOptions">
-          <option value="MERN">
-          <option value="python django">
-          <option value="Ai/ML">
-          <option value="cyber security">
-          <option value="data science">
-          <option value="game development">
-        </datalist>
-      </div>
-      <div class="field" style="flex:1;">
-        <label for="fDesc">Currently learning</label>
-        <textarea id="fDesc" placeholder="e.g. React hooks" maxlength="240"></textarea>
-      </div>
-    </div>
-    <div class="panel-actions">
-      <button class="primary" id="btnSave">Save</button>
-      <button class="ghost" id="btnCancel">Cancel</button>
-    </div>
-  </div>
-
-  <div class="track-section">
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-      <h2>Milestone track</h2>
-      <div class="chart-toggles">
-        <button class="ghost small active" id="btnViewTrack">Track</button>
-        <button class="ghost small" id="btnViewRace">Race</button>
-        <button class="ghost small" id="btnViewSteps">Steps</button>
-        <button class="ghost small" id="btnViewBar">Bar</button>
-        <button class="ghost small" id="btnViewPie">Pie</button>
-        <button class="ghost small" id="btnViewTrend">Trend</button>
-      </div>
-    </div>
-    <p class="track-hint">Visualize student progress across levels.</p>
-    
-    <div id="viewTrackContainer">
-      <div class="track-wrap"><div class="track" id="track"></div></div>
-    </div>
-    
-    <div id="viewRaceContainer" style="display:none; margin-top: 20px;">
-      <div id="raceTrack" style="display:flex; flex-direction:column; gap:10px;"></div>
-    </div>
-
-    <div id="viewStepsContainer" style="display:none; margin-top: 20px;">
-      <div id="stepsToSuccess" style="position:relative; width:100%; min-height:800px; background:var(--color-bg-secondary); border-radius:10px; padding:20px; overflow:hidden;"></div>
-    </div>
-
-    <div id="viewChartContainer" style="display:none; width: 100%; height: 300px; margin-top: 20px;">
-      <canvas id="statsChart"></canvas>
-    </div>
-  </div>
-
-  <div class="grid" id="grid"></div>
-  <div class="empty" id="emptyState" style="display:none;">
-    <h3>No students yet</h3>
-    <div>Add your first student to start tracking levels.</div>
-  </div>
-
 </div>
 
 <footer id="footerNote">
