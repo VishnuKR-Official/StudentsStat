@@ -277,6 +277,20 @@
 
   async function init() {
     try {
+      if (authToken) {
+        try {
+          const data = await api('/api/me');
+          if (data && data.token) {
+            authToken = data.token;
+            currentUser = data.user;
+            localStorage.setItem('authToken', authToken);
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          }
+        } catch (e) {
+          console.warn('Failed to refresh token', e);
+        }
+      }
+
       await loadStudents();
       modeBadge.textContent = 'Connected — changes save to the server';
       footerNote.textContent = 'Data is stored in the server\'s database and stays until a student is deleted.';
@@ -1045,9 +1059,9 @@
       const data = await api('/api/batches', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name })
       });
-      currentUser.batch_id = data.batch_id;
-      currentUser.batch_status = 'approved';
-      currentUser.role = 'admin';
+      authToken = data.token;
+      currentUser = data.user;
+      localStorage.setItem('authToken', authToken);
       localStorage.setItem('currentUser', JSON.stringify(currentUser));
       updateAuthUI();
       loadStudents();

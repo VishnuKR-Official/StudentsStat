@@ -215,6 +215,34 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+app.get('/api/me', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM students WHERE id = $1', [req.user.id]);
+    if (rows.length === 0) return res.status(404).json({error: 'User not found'});
+    const user = rows[0];
+    
+    let isBatchAdmin = false;
+    let batchName = null;
+    if (user.batch_id) {
+      const bRes = await pool.query('SELECT * FROM batches WHERE id = $1', [user.batch_id]);
+      if (bRes.rows.length > 0) {
+        batchName = bRes.rows[0].name;
+        isBatchAdmin = bRes.rows[0].created_by === user.id;
+      }
+    }
+    
+    const tokenUser = { 
+      id: user.id, name: user.name, role: isBatchAdmin ? 'admin' : 'student',
+      batch_id: user.batch_id, batch_status: user.batch_status, batch_name: batchName 
+    };
+    
+    const token = jwt.sign(tokenUser, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ token, user: tokenUser });
+  } catch(err) {
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
 // Mock OTP storage (email -> {code, expires})
 const otpStore = new Map();
 
@@ -268,7 +296,15 @@ app.post('/api/batches', authenticateToken, async (req, res) => {
       'UPDATE students SET batch_id = $1, batch_status = $2 WHERE id = $3',
       [batchId, 'approved', req.user.id]
     );
-    res.json({ message: 'Batch created', batch_id: batchId, invite_code: inviteCode });
+
+    // Generate fresh token
+    const tokenUser = { 
+      id: req.user.id, name: req.user.name, role: 'admin',
+      batch_id: batchId, batch_status: 'approved', batch_name: name 
+    };
+    const token = jwt.sign(tokenUser, JWT_SECRET, { expiresIn: '24h' });
+
+    res.json({ message: 'Batch created', batch_id: batchId, invite_code: inviteCode, token, user: tokenUser });
   } catch(err) {
     console.error(err);
     res.status(500).json({error: 'DB error'});
