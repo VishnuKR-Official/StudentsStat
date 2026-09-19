@@ -310,33 +310,6 @@ app.post('/api/students', async (req, res) => {
       ]
     );
     res.status(201).json(withComputed(student));
-    if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
-    const lvl = clampLevel(level);
-    const now = Date.now();
-    const avatarUrl = await uploadAvatar(avatar);
-    const student = {
-      id: uid(),
-      name: String(name).trim().slice(0, 60),
-      level: lvl,
-      description: (description || '').slice(0, 240),
-      domain: (domain || '').slice(0, 60),
-      avatar: avatarUrl || null,
-      createdAt: now,
-      lastUpdated: now,
-      lastLevelUpAt: now,
-      history: [{ level: lvl, at: now }],
-    };
-    await pool.query(
-      `INSERT INTO students
-        (id, name, level, description, domain, avatar, created_at, last_updated, last_level_up_at, history)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [
-        student.id, student.name, student.level, student.description, student.domain, student.avatar,
-        student.createdAt, student.lastUpdated, student.lastLevelUpAt,
-        JSON.stringify(student.history),
-      ]
-    );
-    res.status(201).json(withComputed(student));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'database error' });
