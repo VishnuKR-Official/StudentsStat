@@ -1565,9 +1565,6 @@
       return `<strong>${isMine ? 'You' : escapeHtml(sender ? sender.name : 'Unknown')}</strong>: ${escapeHtml(m.content)}${editedTag}${ticks}${controls}`;
     }
 
-      return `<strong>${isMine ? 'You' : escapeHtml(sender ? sender.name : 'Unknown')}</strong>: ${escapeHtml(m.content)}${editedTag}${controls}`;
-    }
-
 
     function markDMsAsRead(sender_id) {
       const unreadIds = allMessages
@@ -1722,6 +1719,7 @@
     });
 
 
+
     socket.on('new_message', (m) => {
       allMessages.push(m);
       const isSidebarOpen = chatSidebar.classList.contains('open');
@@ -1743,12 +1741,6 @@
           }
         }
       } else {
-
-          lastReadDMs[m.sender_id] = Date.now();
-          saveBadges();
-          renderMessages();
-        }
-      } else {
         if (!isSidebarOpen || !isGroupTab) {
           if (m.sender_id !== currentUser.id) {
             unreadGroupCount++;
@@ -1761,8 +1753,6 @@
         }
       }
     });
-
-    
     function sendMsg(content, receiver_id = null) {
       if (!content) return;
       socket.emit('send_message', { content, receiver_id });
@@ -1784,7 +1774,24 @@
       if (e.key === 'Enter') btnSendDm.click();
     });
     
+
+    dmRecipientSelect.addEventListener('change', () => {
+      if (dmRecipientSelect.value) {
+        lastReadDMs[dmRecipientSelect.value] = Date.now();
+        unreadDMCounts[dmRecipientSelect.value] = 0;
+        saveBadges();
+        markDMsAsRead(dmRecipientSelect.value);
+        const btnClearDm = document.getElementById('btnClearDm');
+        if (btnClearDm) btnClearDm.disabled = false;
+      } else {
+        const btnClearDm = document.getElementById('btnClearDm');
+        if (btnClearDm) btnClearDm.disabled = true;
+      }
+      renderMessages();
+    });
+
     // UI Toggles
+
     
 
     const btnClearGroup = document.getElementById('btnClearGroup');
