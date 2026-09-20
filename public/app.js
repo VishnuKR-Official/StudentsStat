@@ -1235,7 +1235,19 @@
       filtered.sort((a, b) => b.level - a.level || a.name.localeCompare(b.name))
         .forEach(s => grid.appendChild(renderCard(s)));
     }
-    renderTrack();
+
+      const dmSelect = document.getElementById('dmRecipientSelect');
+      if (dmSelect) {
+        const currentVal = dmSelect.value;
+        let html = '<option value="">Select a user...</option>';
+        students.filter(s => s.batch_status === "approved" && (!currentUser || s.id !== currentUser.id)).forEach(s => {
+          html += `<option value="${s.id}">${escapeHtml(s.name)}</option>`;
+        });
+        dmSelect.innerHTML = html;
+        if (currentVal) dmSelect.value = currentVal;
+      }
+      renderTrack();
+
     renderCharts();
     updateStats();
   }
