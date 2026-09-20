@@ -157,6 +157,82 @@ function isAdmin(req, res, next) {
   next();
 }
 
+// Global Admin Login
+app.post('/api/admin/login', (req, res) => {
+  if (req.body.password === ADMIN_PASSWORD) {
+    const tokenUser = { id: 'admin', name: 'Global Admin', role: 'global_admin', batch_id: null, batch_status: null, batch_name: null };
+    const token = jwt.sign(tokenUser, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ token, user: tokenUser });
+  }
+  return res.status(401).json({ error: 'Invalid admin password' });
+});
+
+// Get all batches (Global Admin)
+app.get('/api/admin/batches', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'global_admin') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { rows } = await pool.query('SELECT * FROM batches ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'DB error' });
+  }
+});
+
+// Enter Batch (Global Admin)
+app.post('/api/admin/enter-batch', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'global_admin') return res.status(403).json({ error: 'Forbidden' });
+  const { batch_id } = req.body;
+  try {
+    const { rows } = await pool.query('SELECT * FROM batches WHERE id = $1', [batch_id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Batch not found' });
+    const tokenUser = { ...req.user, batch_id: rows[0].id, batch_name: rows[0].name };
+    const token = jwt.sign(tokenUser, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ token, user: tokenUser });
+  } catch (err) {
+    res.status(500).json({ error: 'DB error' });
+  }
+});
+
+// Batch Name Edit
+app.put('/api/batches/:id/name', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'global_admin') {
+    return res.status(403).json({ error: 'Only admins can edit the batch name' });
+  }
+  if (req.user.role === 'admin' && req.user.batch_id !== req.params.id) {
+    return res.status(403).json({ error: 'You can only edit your own batch name' });
+  }
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+  try {
+    await pool.query('UPDATE batches SET name = $1 WHERE id = $2', [name, req.params.id]);
+    res.json({ success: true, name });
+  } catch (err) {
+    res.status(500).json({ error: 'DB error' });
+  }
+});
+
+// Role Toggle (Promote to Admin)
+app.post('/api/students/:id/role', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'global_admin') {
+    return res.status(403).json({ error: 'Only admins can promote users' });
+  }
+  const { role } = req.body;
+  if (role !== 'admin' && role !== 'student') return res.status(400).json({ error: 'Invalid role' });
+  try {
+    // If not global admin, ensure the student is in the same batch
+    if (req.user.role !== 'global_admin') {
+      const sRes = await pool.query('SELECT batch_id FROM students WHERE id = $1', [req.params.id]);
+      if (sRes.rows.length === 0 || sRes.rows[0].batch_id !== req.user.batch_id) {
+        return res.status(403).json({ error: 'You can only manage users in your own batch' });
+      }
+    }
+    await pool.query('UPDATE students SET role = $1 WHERE id = $2', [role, req.params.id]);
+    res.json({ success: true, role });
+  } catch (err) {
+    res.status(500).json({ error: 'DB error' });
+  }
+});
+
 // --- AUTH ROUTES ---
 app.post('/api/register', async (req, res) => {
   const { name, email, password, inviteCode } = req.body;

@@ -249,6 +249,21 @@
       
       if (!currentUser.batch_id) {
         batchSetupModal.classList.add('open');
+        if (currentUser.role === 'global_admin') {
+          const gaSection = document.getElementById('globalAdminBatchesSection');
+          const gaList = document.getElementById('globalAdminBatchesList');
+          if (gaSection && gaList) {
+            gaSection.style.display = 'block';
+            api('/api/admin/batches').then(batches => {
+              gaList.innerHTML = batches.map(b => `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg); padding:5px; border-radius:4px;">
+                  <span>${escapeHtml(b.name)}</span>
+                  <button class="small" onclick="enterGlobalBatch('${b.id}')">Enter</button>
+                </div>
+              `).join('');
+            }).catch(e => showMessage('Error', 'Could not load batches'));
+          }
+        }
       } else if (currentUser.batch_status === 'pending') {
         batchSetupModal.classList.remove('open');
         showMessage('Pending Approval', 'Your request to join the batch is pending admin approval.');
@@ -356,7 +371,29 @@
       }
 
       await loadStudents();
-      modeBadge.textContent = 'Connected — changes save to the server';
+      let editIcon = (currentUser && currentUser.role === 'admin') ? ` <i class="fas fa-edit" id="btnEditBatchName" style="cursor:pointer;" title="Edit Batch Name"></i>` : '';
+      const batchDisplay = currentUser && currentUser.batch_name ? ` (Batch: ${escapeHtml(currentUser.batch_name)}${editIcon})` : '';
+      modeBadge.innerHTML = 'Connected' + batchDisplay;
+
+      setTimeout(() => {
+        const btnEditBatchName = document.getElementById('btnEditBatchName');
+        if (btnEditBatchName) {
+          btnEditBatchName.addEventListener('click', async () => {
+            const newName = prompt('Enter new batch name:', currentUser.batch_name);
+            if (newName && newName.trim() !== currentUser.batch_name) {
+              try {
+                await api(`/api/batches/${currentUser.batch_id}/name`, {
+                  method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: newName.trim() })
+                });
+                currentUser.batch_name = newName.trim();
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                init();
+              } catch(e) { showMessage('Error', e.message); }
+            }
+          });
+        }
+      }, 50);
       footerNote.textContent = 'Data is stored in the server\'s database and stays until a student is deleted.';
       
       if (inviteCodeParam && !authToken) {
@@ -389,6 +426,10 @@
     authToggleVisibility.addEventListener('click', () => {
       const isPass = authPassword.type === 'password';
       authPassword.type = isPass ? 'text' : 'password';
+      const eyeIcon = document.getElementById('eyeIcon');
+      if (eyeIcon) {
+        eyeIcon.className = isPass ? 'fas fa-eye-slash' : 'fas fa-eye';
+      }
     });
   }
   
@@ -406,6 +447,29 @@
       authSubmit.textContent = 'Login';
     }
   });
+
+  const authAdminLogin = document.getElementById('authAdminLogin');
+  if (authAdminLogin) {
+    authAdminLogin.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const pwd = prompt('Enter System Admin Password:');
+      if (!pwd) return;
+      try {
+        const res = await api('/api/admin/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pwd })
+        });
+        authToken = res.token;
+        currentUser = res.user;
+        localStorage.setItem('authToken', authToken);
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        authModal.classList.remove('open');
+        updateAuthUI();
+        init();
+        showMessage('Success', 'Logged in as Global Admin');
+      } catch (e) { showMessage('Error', 'Invalid Admin Password'); }
+    });
+  }
 
   authSubmit.addEventListener('click', async () => {
     const email = authEmail.value.trim();
@@ -485,6 +549,13 @@
     document.getElementById('statAvg').textContent = avg ? avg.toFixed(1) : '0';
     document.getElementById('statMax').textContent = students.filter(s => s.level >= MAX_LEVEL).length;
   }
+
+  // Move modals out of appContent so they can be visible when appContent is hidden
+  const modalsToMove = ['authModal', 'batchSetupModal', 'manageApprovalsModal', 'messageModal', 'confirmModal'];
+  modalsToMove.forEach(id => {
+    const modal = document.getElementById(id);
+    if (modal) document.body.appendChild(modal);
+  });
 
   function showTooltip(target, s) {
     const tier = tierInfo(s.level);
@@ -599,10 +670,10 @@
       <div class="segments">${segs}</div>
       <div class="desc-line">${s.description ? escapeHtml(s.description) : ''}</div>
       <div class="social-icons">
-        ${s.github ? `<a href="${escapeHtml(s.github)}" target="_blank" title="GitHub">🐙</a>` : ''}
-        ${s.linkedin ? `<a href="${escapeHtml(s.linkedin)}" target="_blank" title="LinkedIn">💼</a>` : ''}
-        ${s.x_account ? `<a href="${escapeHtml(s.x_account)}" target="_blank" title="X (Twitter)">𝕏</a>` : ''}
-        ${isOtherUser ? `<button data-act="dm" title="Direct Message">💬</button>` : ''}
+        ${s.github ? `<a href="${escapeHtml(s.github)}" target="_blank" title="GitHub"><i class="fab fa-github"></i></a>` : ''}
+        ${s.linkedin ? `<a href="${escapeHtml(s.linkedin)}" target="_blank" title="LinkedIn"><i class="fab fa-linkedin"></i></a>` : ''}
+        ${s.x_account ? `<a href="${escapeHtml(s.x_account)}" target="_blank" title="X (Twitter)"><i class="fab fa-x-twitter"></i></a>` : ''}
+        ${isOtherUser ? `<button class="btn-dm" data-act="dm" title="Direct Message"><i class="fas fa-comment"></i> One to One Chat</button>` : ''}
       </div>
       ${canEdit ? `
       <div class="card-controls" style="flex-direction: column; align-items: stretch; gap: 8px; margin-top: 10px;">
@@ -636,7 +707,19 @@
         const chatSidebar = document.getElementById('chatSidebar');
         if (chatSidebar) {
           chatSidebar.classList.add('open');
-          document.getElementById('tabDMs').click();
+          
+          const tabDMs = document.getElementById('tabDMs');
+          const tabGroupChat = document.getElementById('tabGroupChat');
+          const dmChatView = document.getElementById('dmChatView');
+          const groupChatView = document.getElementById('groupChatView');
+          
+          if (tabDMs && dmChatView) {
+            tabDMs.classList.add('active');
+            tabGroupChat.classList.remove('active');
+            dmChatView.classList.add('active');
+            groupChatView.classList.remove('active');
+          }
+          
           const dmRecipientSelect = document.getElementById('dmRecipientSelect');
           if (dmRecipientSelect) {
             dmRecipientSelect.value = s.id;
@@ -683,7 +766,7 @@
 
   // --- Custom Tooltip ---
   let tooltipEl = null;
-  function showTooltip(e, content) {
+  function showGraphTooltip(e, content) {
     if (!tooltipEl) {
       tooltipEl = document.createElement('div');
       tooltipEl.style.position = 'absolute';
@@ -706,8 +789,10 @@
     tooltipEl.style.left = (e.pageX + 15) + 'px';
     tooltipEl.style.top = (e.pageY + 15) + 'px';
   }
-  function hideTooltip() {
-    if (tooltipEl) tooltipEl.style.display = 'none';
+  function hideGraphTooltip() {
+    if (tooltipEl) {
+      tooltipEl.style.display = 'none';
+    }
   }
   document.addEventListener('mousemove', e => {
     if (tooltipEl && tooltipEl.style.display !== 'none') {
@@ -776,9 +861,9 @@
       nameTag.style.whiteSpace = 'nowrap';
       
       runner.addEventListener('mouseenter', e => {
-        showTooltip(e, `${avatarHtml} <div><b>${s.name}</b><br/>Level ${s.level} - ${tierInfo(s.level).name}</div>`);
+        showGraphTooltip(e, `${avatarHtml} <div><b>${s.name}</b><br/>Level ${s.level} - ${tierInfo(s.level).name}</div>`);
       });
-      runner.addEventListener('mouseleave', hideTooltip);
+      runner.addEventListener('mouseleave', hideGraphTooltip);
 
       runner.appendChild(avatar);
       runner.appendChild(nameTag);
@@ -836,9 +921,9 @@
           avatar.innerHTML = avatarHtml;
           
           avatar.addEventListener('mouseenter', e => {
-            showTooltip(e, `${avatarHtml} <div><b>${s.name}</b><br/>Level ${s.level} - ${tierInfo(s.level).name}</div>`);
+            showGraphTooltip(e, `${avatarHtml} <div><b>${s.name}</b><br/>Level ${s.level} - ${tierInfo(s.level).name}</div>`);
           });
-          avatar.addEventListener('mouseleave', hideTooltip);
+          avatar.addEventListener('mouseleave', hideGraphTooltip);
 
           avatarContainer.appendChild(avatar);
         });
@@ -1218,12 +1303,11 @@
         await api('/api/batches/leave', { method: 'POST' });
         currentUser.batch_id = null;
         currentUser.batch_status = null;
-        currentUser.batch_name = null;
-        currentUser.role = 'student';
+        if (currentUser.role !== 'global_admin') {
+          currentUser.role = 'student';
+        }
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        students = [];
-        updateAuthUI();
-        render();
+        window.location.reload();
       } catch(e) {
         showMessage('Error', e.message);
       }
@@ -1505,4 +1589,108 @@
   init();
   // Refresh periodically so streak/emoji state (and other people's edits) stay current
   setInterval(loadStudents, 30000);
+
+  // --- Landing Canvas Animation ---
+  const landingCanvas = document.getElementById('landingCanvas');
+  if (landingCanvas) {
+    const lctx = landingCanvas.getContext('2d');
+    let lnodes = [];
+    let lmx = -1000, lmy = -1000;
+    
+    function initLandingCanvas() {
+      landingCanvas.width = window.innerWidth;
+      landingCanvas.height = window.innerHeight;
+      lnodes = [];
+      const numNodes = Math.floor((landingCanvas.width * landingCanvas.height) / 10000);
+      for (let i = 0; i < numNodes; i++) {
+        lnodes.push({
+          x: Math.random() * landingCanvas.width,
+          y: Math.random() * landingCanvas.height,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: (Math.random() - 0.5) * 1.5,
+          radius: Math.random() * 2 + 1
+        });
+      }
+    }
+    
+    window.addEventListener('resize', () => {
+      if (landingHero && landingHero.style.display !== 'none') initLandingCanvas();
+    });
+    
+    landingCanvas.addEventListener('mousemove', (e) => {
+      lmx = e.clientX; lmy = e.clientY;
+    });
+    landingCanvas.addEventListener('mouseleave', () => {
+      lmx = -1000; lmy = -1000;
+    });
+
+    function drawLanding() {
+      if (landingHero && landingHero.style.display === 'none') {
+        requestAnimationFrame(drawLanding);
+        return;
+      }
+      
+      lctx.clearRect(0, 0, landingCanvas.width, landingCanvas.height);
+      
+      // Update nodes
+      for (let n of lnodes) {
+        n.x += n.vx; n.y += n.vy;
+        if (n.x < 0 || n.x > landingCanvas.width) n.vx *= -1;
+        if (n.y < 0 || n.y > landingCanvas.height) n.vy *= -1;
+        
+        // Mouse repel
+        const dx = lmx - n.x;
+        const dy = lmy - n.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 150) {
+          n.x -= (dx / dist) * 2;
+          n.y -= (dy / dist) * 2;
+        }
+        
+        lctx.beginPath();
+        lctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+        lctx.fillStyle = 'rgba(62, 214, 160, 0.8)';
+        lctx.fill();
+      }
+      
+      // Draw connections
+      for (let i = 0; i < lnodes.length; i++) {
+        for (let j = i + 1; j < lnodes.length; j++) {
+          const dx = lnodes[i].x - lnodes[j].x;
+          const dy = lnodes[i].y - lnodes[j].y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 120) {
+            lctx.beginPath();
+            lctx.moveTo(lnodes[i].x, lnodes[i].y);
+            lctx.lineTo(lnodes[j].x, lnodes[j].y);
+            lctx.strokeStyle = `rgba(62, 214, 160, ${1 - dist/120})`;
+            lctx.stroke();
+          }
+        }
+      }
+      
+      requestAnimationFrame(drawLanding);
+    }
+    
+    initLandingCanvas();
+    drawLanding();
+  }
 })();
+
+window.enterGlobalBatch = async function(batch_id) {
+  try {
+    let authToken = localStorage.getItem('authToken');
+    const res = await fetch('/api/admin/enter-batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+      body: JSON.stringify({ batch_id })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    localStorage.setItem('authToken', data.token);
+    localStorage.setItem('currentUser', JSON.stringify(data.user));
+    window.location.reload();
+  } catch(e) {
+    alert(e.message);
+  }
+};

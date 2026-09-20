@@ -12,14 +12,18 @@
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#161D2E">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230E1320'/%3E%3Ctext y='60' x='50' font-size='40' fill='%23E7B740' text-anchor='middle'%3ER%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
 </head>
 <body>
 <canvas id="bgCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1;"></canvas>
 <div class="wrap">
-  <div id="landingHero" class="landing-hero" style="display:block;">
-    <h1 class="glitch" data-text="RANK BOARD">RANK BOARD</h1>
-    <p>The Ultimate Cyberpunk Tracking Experience</p>
-    <button class="primary large" id="btnLandingLogin">Enter the Grid</button>
+  <div id="landingHero" class="landing-hero" style="display:block; position: relative; overflow: hidden; background: #0B0F1A;">
+    <canvas id="landingCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:0;"></canvas>
+    <div style="position:relative; z-index:1;">
+      <h1 class="glitch" data-text="RANK BOARD">RANK BOARD</h1>
+      <p>The Ultimate Cyberpunk Tracking Experience</p>
+      <button class="primary large" id="btnLandingLogin">Enter the Grid</button>
+    </div>
   </div>
 
   <div id="appContent" style="display:none;">
@@ -44,7 +48,7 @@
       <!-- Batch specific toolbar items -->
       <button class="ghost small" id="btnInviteCode" style="display:none;" title="Copy Invite Link">🔗 Invite</button>
       <button class="ghost small" id="btnManageApprovals" style="display:none;">👥 Approvals</button>
-      <button class="ghost small" id="btnOpenGroupChat" style="display:none; color: var(--teal); border-color: var(--teal);">💬 Group Chat</button>
+      <button class="ghost small" id="btnOpenGroupChat" style="display:none; color: var(--teal); border-color: var(--teal);"><i class="fas fa-comments"></i> Group Chat</button>
       
       <span id="adminBadge" style="display:none; color:var(--gold); font-weight:bold; margin-right:15px; margin-left:15px;">👑 Admin</span>
       <button class="ghost small" id="btnLeaveBatch" style="display:none; color: var(--neon-red); border-color: var(--neon-red);">Leave Batch</button>
@@ -69,7 +73,7 @@
           <label>Password</label>
           <div style="position: relative; display: flex; align-items: center;">
             <input type="password" id="authPassword" placeholder="••••••••" style="width: 100%; padding-right: 40px;">
-            <button type="button" id="btnTogglePassword" class="ghost small" style="position: absolute; right: 5px; padding: 2px 8px; border: none; background: transparent; font-size: 1.2rem;" title="Show Password">👁️</button>
+            <button type="button" id="authToggleVisibility" class="ghost small" style="position: absolute; right: 5px; z-index: 2; pointer-events: auto; padding: 2px 8px; border: none; background: transparent; font-size: 1.2rem;" title="Show Password"><i class="fas fa-eye" id="eyeIcon" style="pointer-events: none;"></i></button>
           </div>
         </div>
         <div id="authNameField" style="display:none;">
@@ -79,7 +83,10 @@
           </div>
         </div>
         <div class="modal-actions" style="justify-content: space-between; align-items: center;">
-          <a href="#" id="authToggleMode" style="color:var(--teal); font-size:0.85rem; text-decoration:none;">Need an account? Register</a>
+          <div>
+            <a href="#" id="authToggleMode" style="color:var(--teal); font-size:0.85rem; text-decoration:none; display:block; margin-bottom: 5px;">Need an account? Register</a>
+            <a href="#" id="authAdminLogin" style="color:var(--gold); font-size:0.75rem; text-decoration:none;">System Admin Login</a>
+          </div>
           <div style="display:flex; gap:10px;">
             <button class="ghost" id="authCancel">Cancel</button>
             <button class="primary" id="authSubmit">Login</button>
@@ -109,9 +116,12 @@
             <button class="primary small" id="btnSubmitCreateBatch">Create</button>
           </div>
         </div>
+        <div id="globalAdminBatchesSection" style="display:none; margin-top: 20px; border-top: 1px solid var(--line); padding-top: 20px;">
+          <h4 style="margin-top: 0; color: var(--rose);">Global Admin: All Batches</h4>
+          <div id="globalAdminBatchesList" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px;"></div>
+        </div>
       </div>
     </div>
-
     <!-- Manage Approvals Modal -->
     <div class="modal-overlay" id="manageApprovalsModal">
       <div class="modal-box" style="max-width: 500px;">
@@ -254,7 +264,7 @@
 </div>
 
 <!-- Chat Sidebar -->
-<div id="chatSidebar" class="chat-sidebar" style="display:none;">
+<div id="chatSidebar" class="chat-sidebar">
   <div class="chat-header">
     <h3 style="margin:0; font-size: 1.1rem; text-shadow: 0 0 5px var(--neon-cyan);">Live Comm</h3>
     <button id="btnCloseChat" class="ghost small">✕</button>
