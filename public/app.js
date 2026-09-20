@@ -2009,3 +2009,30 @@ window.enterGlobalBatch = async function(batch_id) {
     alert(e.message);
   }
 };
+
+
+  let deferredPrompt;
+  const btnInstallApp = document.getElementById('btnInstallApp');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (btnInstallApp) btnInstallApp.style.display = 'inline-block';
+  });
+
+  if (btnInstallApp) {
+    btnInstallApp.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          btnInstallApp.style.display = 'none';
+        }
+        deferredPrompt = null;
+      }
+    });
+  }
+
+  window.addEventListener('appinstalled', () => {
+    if (btnInstallApp) btnInstallApp.style.display = 'none';
+  });

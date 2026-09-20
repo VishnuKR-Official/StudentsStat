@@ -24,13 +24,20 @@ This app eliminates all that confusion! It gives our entire batch a single, shar
 
 ## ✨ Features
 
-- **🎮 52 Gamified Levels**: Track progress step-by-step from Level 1 all the way to Level 52.
-- **📈 Dynamic Milestone Track**: 
+- **🏆 52 Gamified Levels**: Track progress step-by-step from Level 1 all the way to Level 52.
+- **🚀 Dynamic Milestone Track**: 
   - 🚀 **Rocket**: Just leveled up in the past 48 hours!
-  - 🙂 **Active**: Updated level this week.
-  - 😐 / 😴 / ⚠️ **Stale Indicators**: Sinks down slightly if inactive for 1+ weeks to encourage momentum.
-- **⚡ Real-Time Cloud Sync**: Powered by a hosted **Supabase PostgreSQL** database, so student data survives server restarts and redeploys.
-- **💾 Export & Backup**: Download a local JSON snapshot of the entire leaderboard anytime.
+  - 🟢 **Active**: Updated level this week.
+  - 🟡 / 🔴 **Stale Indicators**: Sinks down slightly if inactive for 1+ weeks to encourage momentum.
+- **👥 Multiple Batches & Invite Links**: Create isolated rooms for different cohorts. Admins control entry via Invite Links and approve pending members.
+- **💬 Real-Time Live Chat**: 
+  - Global Batch Group Chat for announcements and banter.
+  - **One-to-One DMs** for private messaging.
+  - Complete with Unread Badges, Read Receipts (✓✓), Edit, and Delete (for me/everyone) capabilities.
+  - Privacy-first: Messages self-destruct after 24 hours.
+- **📱 PWA & Installable**: Acts as a native app on iOS, Android, and Desktop with offline caching for blazing fast loads. Just hit "Install App"!
+- **🔔 Weekly Automated Reminders**: System automatically pings every batch every Monday morning at 10 AM to update their levels.
+- **☁️ Real-Time Cloud Sync**: Powered by a hosted **Supabase PostgreSQL** database, so student data survives server restarts and redeploys.
 
 ---
 
