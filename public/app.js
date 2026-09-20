@@ -1240,7 +1240,7 @@
       if (dmSelect) {
         const currentVal = dmSelect.value;
         let html = '<option value="">Select a user...</option>';
-        students.filter(s => s.batch_status === "approved" && (!currentUser || s.id !== currentUser.id)).forEach(s => {
+        students.filter(s => (!currentUser || s.id !== currentUser.id)).forEach(s => {
           html += `<option value="${s.id}">${escapeHtml(s.name)}</option>`;
         });
         dmSelect.innerHTML = html;
@@ -1574,7 +1574,7 @@
       }
       controls += `<i class="fas fa-eye-slash" onclick="window.hideMessage(${m.id})" title="Delete for me"></i></div>`;
       
-      return `<strong>${isMine ? 'You' : escapeHtml(sender ? sender.name : 'Unknown')}</strong>: ${escapeHtml(m.content)}${editedTag}${ticks}${controls}`;
+      return `<strong>${isMine ? 'You' : escapeHtml(m.sender_id === 'admin' ? 'System' : (sender ? sender.name : 'Unknown'))}</strong>: ${escapeHtml(m.content)}${editedTag}${ticks}${controls}`;
     }
 
 
