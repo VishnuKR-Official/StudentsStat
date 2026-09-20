@@ -1,6 +1,7 @@
 (function () {
   let authToken = localStorage.getItem('authToken') || null;
-  let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+  let currentUser = null;
+  try { currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null'); } catch(e) { localStorage.removeItem('currentUser'); }
   
   // ---- Background Animation ----
   const canvas = document.getElementById('bgCanvas');
@@ -91,9 +92,11 @@
   
   let unreadGroupCount = 0;
   let unreadDMCounts = {};
+  try { unreadDMCounts = JSON.parse(localStorage.getItem('unreadDMCounts') || '{}'); } catch(e) {}
   
   let lastReadGroup = parseInt(localStorage.getItem('lastReadGroup') || '0');
-  let lastReadDMs = JSON.parse(localStorage.getItem('lastReadDMs') || '{}');
+  let lastReadDMs = {};
+  try { lastReadDMs = JSON.parse(localStorage.getItem('lastReadDMs') || '{}'); } catch(e) {}
   
   window.saveBadges = function() {
     localStorage.setItem('lastReadGroup', lastReadGroup);
