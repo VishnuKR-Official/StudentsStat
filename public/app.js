@@ -398,6 +398,17 @@
     try {
       if (authToken) {
         students = await api(API);
+        if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'global_admin') && currentUser.batch_id) {
+          try {
+            const pending = await api('/api/batches/pending');
+            const count = pending ? pending.length : 0;
+            const b = document.getElementById('approvalsBadge');
+            if (b) {
+              b.style.display = count > 0 ? 'flex' : 'none';
+              b.textContent = count;
+            }
+          } catch(e) {}
+        }
       } else {
         students = [];
       }

@@ -428,7 +428,7 @@ app.get('/api/batches/my-batch', authenticateToken, async (req, res) => {
 
 app.get('/api/batches/pending', authenticateToken, async (req, res) => {
   if (!req.user.batch_id) return res.status(400).json({error: 'Not in a batch'});
-  if (req.user.role !== 'admin') return res.status(403).json({error: 'Only batch admin can view pending'});
+  if (req.user.role !== 'admin' && req.user.role !== 'global_admin') return res.status(403).json({error: 'Only batch admin can view pending'});
   try {
     const { rows } = await pool.query('SELECT id, name, email FROM students WHERE batch_id = $1 AND batch_status = $2', [req.user.batch_id, 'pending']);
     res.json(rows);
