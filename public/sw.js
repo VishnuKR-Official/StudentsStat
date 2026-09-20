@@ -1,4 +1,4 @@
-const CACHE_NAME = "rankboard-v2";
+const CACHE_NAME = "rankboard-v7";
 const ASSETS = [
   "/",
   "/index.html",
