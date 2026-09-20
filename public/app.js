@@ -514,7 +514,9 @@
   authCancel.addEventListener('click', () => authModal.classList.remove('open'));
   
   if (authToggleVisibility) {
-    authToggleVisibility.addEventListener('click', () => {
+    authToggleVisibility.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const isPass = authPassword.type === 'password';
       authPassword.type = isPass ? 'text' : 'password';
       const eyeIcon = document.getElementById('eyeIcon');
@@ -523,6 +525,35 @@
       }
     });
   }
+
+  // PWA Install Prompt
+  let deferredPrompt;
+  const btnInstallApp = document.getElementById('btnInstallApp');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (btnInstallApp) {
+      btnInstallApp.style.display = 'inline-block';
+    }
+  });
+
+  if (btnInstallApp) {
+    btnInstallApp.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        btnInstallApp.style.display = 'none';
+      }
+    });
+  }
+
+  window.addEventListener('appinstalled', (evt) => {
+    if (btnInstallApp) {
+      btnInstallApp.style.display = 'none';
+    }
+  });
   
   authToggleMode.addEventListener('click', (e) => {
     e.preventDefault();
@@ -761,11 +792,11 @@
       <div class="bar-outer"><div class="bar-inner" style="width:${pct}%"></div></div>
       <div class="segments">${segs}</div>
       <div class="desc-line">${s.description ? escapeHtml(s.description) : ''}</div>
-      <div class="social-icons">
+      <div class="social-icons" style="display:flex; align-items:center; gap:8px;">
         ${s.github ? `<a href="${escapeHtml(s.github)}" target="_blank" title="GitHub"><i class="fab fa-github"></i></a>` : ''}
         ${s.linkedin ? `<a href="${escapeHtml(s.linkedin)}" target="_blank" title="LinkedIn"><i class="fab fa-linkedin"></i></a>` : ''}
         ${s.x_account ? `<a href="${escapeHtml(s.x_account)}" target="_blank" title="X (Twitter)"><i class="fab fa-x-twitter"></i></a>` : ''}
-        ${isOtherUser ? `<button class="btn-dm" data-act="dm" title="Direct Message" style="position:relative;"><i class="fas fa-comment"></i> One to One Chat <span id="cardBadge_\" class="badge" style="display:none; top:-8px; right:-8px; width:20px; height:20px; font-size:0.65rem;">0</span></button>` : ''}
+        ${isOtherUser ? `<button class="btn-dm" data-act="dm" title="Direct Message" style="position:relative; margin-left:auto; background:none; border:none; color:var(--teal); cursor:pointer; font-size:1.2rem; padding:5px;"><i class="fas fa-inbox"></i><span id="cardBadge_${s.id}" class="badge" style="display:none; position:absolute; top:-5px; right:-5px; width:18px; height:18px; font-size:0.65rem; background:var(--neon-red); color:#fff; border-radius:50%; align-items:center; justify-content:center;">0</span></button>` : ''}
       </div>
       ${canEdit ? `
       <div class="card-controls" style="flex-direction: column; align-items: stretch; gap: 8px; margin-top: 10px;">

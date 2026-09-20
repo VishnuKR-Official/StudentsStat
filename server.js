@@ -1035,13 +1035,52 @@ async function initDb() {
       );
     `);
     
-    // Auto-cleanup ephemeral messages older than 24 hours (86400000 ms)
+// Auto-cleanup ephemeral messages older than 24 hours (86400000 ms)
     await pool.query(`DELETE FROM messages WHERE created_at < $1`, [Date.now() - 86400000]);
     console.log('✓ Database schema verified/initialized (students table & index ready).');
   } catch (err) {
     console.warn('Note on DB init check:', err.message);
   }
 }
+
+// Schedule weekly summary notification
+const cron = require('node-cron');
+cron.schedule('0 11 * * 1', async () => {
+  console.log('Running weekly notification job...');
+  try {
+    const { rows: batches } = await pool.query('SELECT id, name FROM batches');
+    const now = Date.now();
+    for (const batch of batches) {
+      const { rows: students } = await pool.query(
+        'SELECT * FROM students WHERE batch_id = $1 AND batch_status = $2', 
+        [batch.id, 'approved']
+      );
+      if (students.length === 0) continue;
+      
+      let staleCount = 0;
+      let activeCount = 0;
+      const weekMs = 7 * 24 * 60 * 60 * 1000;
+      
+      students.forEach(s => {
+        const sinceLevelChange = now - Number(s.last_level_up_at || s.last_updated || s.created_at || now);
+        if (sinceLevelChange > weekMs) staleCount++;
+        else activeCount++;
+      });
+      
+      const content = `🔔 Weekly Progress Report:\nGreat job to the ${activeCount} students who made progress recently! We have ${staleCount} students who haven't updated their level in over a week. Let's keep the momentum going!`;
+      
+      const result = await pool.query(
+        `INSERT INTO messages (sender_id, receiver_id, batch_id, content, created_at)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        ['admin', null, batch.id, content, now]
+      );
+      
+      io.to(`batch_${batch.id}`).emit('new_message', result.rows[0]);
+    }
+  } catch(err) {
+    console.error('Error in weekly cron job', err);
+  }
+});
 
 httpServer.listen(PORT, () => {
   console.log(`Rank Board running at http://localhost:${PORT}`);
