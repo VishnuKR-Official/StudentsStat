@@ -88,14 +88,19 @@
 
   let students = [];
 
-  let unreadGroupCount = parseInt(localStorage.getItem('unreadGroupCount') || '0');
-  let unreadDMCounts = JSON.parse(localStorage.getItem('unreadDMCounts') || '{}');
+  
+  let unreadGroupCount = 0;
+  let unreadDMCounts = {};
+  
+  let lastReadGroup = parseInt(localStorage.getItem('lastReadGroup') || '0');
+  let lastReadDMs = JSON.parse(localStorage.getItem('lastReadDMs') || '{}');
   
   window.saveBadges = function() {
-    localStorage.setItem('unreadGroupCount', unreadGroupCount);
-    localStorage.setItem('unreadDMCounts', JSON.stringify(unreadDMCounts));
+    localStorage.setItem('lastReadGroup', lastReadGroup);
+    localStorage.setItem('lastReadDMs', JSON.stringify(lastReadDMs));
     window.updateBadgeUI();
   }
+
   
   window.updateBadgeUI = function() {
     const groupBadge = document.getElementById('groupChatBadge');
@@ -763,6 +768,7 @@
           const dmChatView = document.getElementById('dmChatView');
           const groupChatView = document.getElementById('groupChatView');
           
+          lastReadDMs[s.id] = Date.now();
           unreadDMCounts[s.id] = 0;
           saveBadges();
 
@@ -1555,6 +1561,7 @@
     
     dmRecipientSelect.addEventListener('change', () => {
       if (dmRecipientSelect.value) {
+        lastReadDMs[dmRecipientSelect.value] = Date.now();
         unreadDMCounts[dmRecipientSelect.value] = 0;
         saveBadges();
       }
@@ -1566,10 +1573,44 @@
       socket.emit('fetch_messages');
     });
     
+    
     socket.on('recent_messages', (msgs) => {
       allMessages = msgs;
+      
+      // Calculate unread from history
+      unreadGroupCount = 0;
+      unreadDMCounts = {};
+      const isSidebarOpen = chatSidebar.classList.contains('open');
+      const isGroupTab = tabGroupChat.classList.contains('active');
+      const isDMTab = tabDMs.classList.contains('active');
+      
+      msgs.forEach(m => {
+        if (m.sender_id === currentUser.id) return;
+        const msgTime = new Date(m.created_at).getTime();
+        if (m.receiver_id) {
+          const lr = lastReadDMs[m.sender_id] || 0;
+          if (msgTime > lr) {
+             if (!isSidebarOpen || !isDMTab || dmRecipientSelect.value !== m.sender_id) {
+               unreadDMCounts[m.sender_id] = (unreadDMCounts[m.sender_id] || 0) + 1;
+             } else {
+               lastReadDMs[m.sender_id] = Date.now(); // update as read
+             }
+          }
+        } else {
+          if (msgTime > lastReadGroup) {
+             if (!isSidebarOpen || !isGroupTab) {
+               unreadGroupCount++;
+             } else {
+               lastReadGroup = Date.now();
+             }
+          }
+        }
+      });
+      saveBadges();
       renderMessages();
     });
+
+    
     
     socket.on('new_message', (m) => {
       allMessages.push(m);
@@ -1584,6 +1625,8 @@
             saveBadges();
           }
         } else {
+          lastReadDMs[m.sender_id] = Date.now();
+          saveBadges();
           renderMessages();
         }
       } else {
@@ -1593,10 +1636,13 @@
             saveBadges();
           }
         } else {
+          lastReadGroup = Date.now();
+          saveBadges();
           renderMessages();
         }
       }
     });
+
     
     function sendMsg(content, receiver_id = null) {
       if (!content) return;
@@ -1624,6 +1670,7 @@
     const btnOpenGroupChat = document.getElementById('btnOpenGroupChat');
     if (btnOpenGroupChat) {
       btnOpenGroupChat.addEventListener('click', () => {
+        lastReadGroup = Date.now();
         unreadGroupCount = 0;
         saveBadges();
         chatSidebar.classList.add('open');
@@ -1638,6 +1685,7 @@
     
     
     tabGroupChat.addEventListener('click', () => {
+      lastReadGroup = Date.now();
       unreadGroupCount = 0;
       saveBadges();
       tabGroupChat.classList.add('active');
@@ -1675,6 +1723,12 @@
        }
     } else {
       if (socket) socket.disconnect();
+      const chatSidebar = document.getElementById('chatSidebar');
+      if (chatSidebar) chatSidebar.classList.remove('open');
+      const groupMessages = document.getElementById('groupMessages');
+      if (groupMessages) groupMessages.innerHTML = '';
+      const dmMessages = document.getElementById('dmMessages');
+      if (dmMessages) dmMessages.innerHTML = '';
     }
   };
 
