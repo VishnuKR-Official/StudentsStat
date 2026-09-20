@@ -1,4 +1,7 @@
 (function () {
+  let authToken = localStorage.getItem('authToken') || null;
+  let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+  
   // ---- Background Animation ----
   const canvas = document.getElementById('bgCanvas');
   const ctx = canvas.getContext('2d');
@@ -88,8 +91,8 @@
   let pendingAvatar = null;
   let prevPositions = {};
   
-  let authToken = localStorage.getItem('authToken') || null;
-  let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+  let currentView = 'track'; // 'track', 'race', 'steps', 'bar', 'pie', 'trend'
+
 
   // Handle invite links in URL
   const urlParams = new URLSearchParams(window.location.search);
