@@ -152,7 +152,6 @@
   const ctxChart = document.getElementById('statsChart').getContext('2d');
   
   let currentChart = null;
-  let currentView = 'track';
 
   const taglines = [
     "Learning is a journey, not a destination.",
