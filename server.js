@@ -825,7 +825,48 @@ io.on('connection', (socket) => {
     }
   });
 
+
+  socket.on('edit_message', async (data) => {
+    try {
+      const { id, content } = data;
+      if (!id || !content || !content.trim()) return;
+      const result = await pool.query(
+        `UPDATE messages SET content = $1, is_edited = true WHERE id = $2 AND sender_id = $3 RETURNING *`,
+        [content.trim(), id, user.id]
+      );
+      if (result.rowCount > 0) {
+        const updatedMsg = result.rows[0];
+        if (updatedMsg.receiver_id) {
+          io.to(`user_${updatedMsg.receiver_id}`).emit('message_edited', updatedMsg);
+          io.to(`user_${updatedMsg.sender_id}`).emit('message_edited', updatedMsg);
+        } else {
+          io.to(`batch_${user.batch_id}`).emit('message_edited', updatedMsg);
+        }
+      }
+    } catch(err) { console.error('Edit error', err); }
+  });
+
+  socket.on('delete_message', async (data) => {
+    try {
+      const { id } = data;
+      if (!id) return;
+      
+      const check = await pool.query(`SELECT * FROM messages WHERE id = $1 AND sender_id = $2`, [id, user.id]);
+      if (check.rowCount > 0) {
+        const msg = check.rows[0];
+        await pool.query(`DELETE FROM messages WHERE id = $1`, [id]);
+        if (msg.receiver_id) {
+          io.to(`user_${msg.receiver_id}`).emit('message_deleted', { id });
+          io.to(`user_${msg.sender_id}`).emit('message_deleted', { id });
+        } else {
+          io.to(`batch_${user.batch_id}`).emit('message_deleted', { id });
+        }
+      }
+    } catch(err) { console.error('Delete error', err); }
+  });
+
   // Handle new message
+
   socket.on('send_message', async (data) => {
     try {
       const { content, receiver_id } = data;
@@ -908,8 +949,11 @@ async function initDb() {
         receiver_id     TEXT,
         batch_id        TEXT NOT NULL,
         content         TEXT NOT NULL,
+        is_edited       BOOLEAN DEFAULT false,
         created_at      BIGINT NOT NULL
       );
+      
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT false;
       
       CREATE TABLE IF NOT EXISTS delete_requests (
         id              SERIAL PRIMARY KEY,

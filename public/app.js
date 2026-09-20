@@ -1513,6 +1513,23 @@
     
     let allMessages = [];
     
+
+    function buildMsgHtml(m) {
+      const isMine = m.sender_id === currentUser.id;
+      const sender = students.find(s => s.id === m.sender_id);
+      const editedTag = m.is_edited ? ' <span style="font-size:0.7em; color:var(--muted);">(edited)</span>' : '';
+      let controls = '';
+      if (isMine) {
+        controls = `
+          <div class="msg-controls" style="display:inline-block; margin-left:10px; opacity:0.5; cursor:pointer;">
+            <i class="fas fa-edit" onclick="window.editMessage(${m.id}, '${escapeHtml(m.content).replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" title="Edit" style="margin-right:5px;"></i>
+            <i class="fas fa-trash-alt" onclick="window.deleteMessage(${m.id})" title="Unsend"></i>
+          </div>
+        `;
+      }
+      return `<strong>${isMine ? 'You' : escapeHtml(sender ? sender.name : 'Unknown')}</strong>: ${escapeHtml(m.content)}${editedTag}${controls}`;
+    }
+
     function renderMessages() {
       // Group Chat
       groupMessages.innerHTML = '';
@@ -1520,8 +1537,7 @@
       groupMsgs.forEach(m => {
         const div = document.createElement('div');
         div.className = `chat-message ${m.sender_id === currentUser.id ? 'sent' : 'received'}`;
-        const sender = students.find(s => s.id === m.sender_id);
-        div.innerHTML = `<strong>${m.sender_id === currentUser.id ? 'You' : escapeHtml(sender ? sender.name : 'Unknown')}</strong>: ${escapeHtml(m.content)}`;
+        div.innerHTML = buildMsgHtml(m);
         groupMessages.appendChild(div);
       });
       groupMessages.scrollTop = groupMessages.scrollHeight;
@@ -1539,50 +1555,15 @@
         privateMsgs.forEach(m => {
           const div = document.createElement('div');
           div.className = `chat-message ${m.sender_id === currentUser.id ? 'sent' : 'received'}`;
-          const sender = students.find(s => s.id === m.sender_id);
-          div.innerHTML = `<strong>${m.sender_id === currentUser.id ? 'You' : escapeHtml(sender ? sender.name : 'Unknown')}</strong>: ${escapeHtml(m.content)}`;
+          div.innerHTML = buildMsgHtml(m);
           dmMessages.appendChild(div);
         });
         dmMessages.scrollTop = dmMessages.scrollHeight;
       } else {
         dmMsgInput.disabled = true;
         btnSendDm.disabled = true;
-        dmMessages.innerHTML = '<div style="text-align:center; color:var(--muted); margin-top:20px;">Select a user to message</div>';
       }
     }
-    
-    function populateDMSelect() {
-      const currentVal = dmRecipientSelect.value;
-      dmRecipientSelect.innerHTML = '<option value="">Select a user...</option>';
-      students.forEach(s => {
-        if (s.id !== currentUser.id) {
-          const opt = document.createElement('option');
-          opt.value = s.id;
-          opt.textContent = s.name;
-          dmRecipientSelect.appendChild(opt);
-        }
-      });
-      if (currentVal) dmRecipientSelect.value = currentVal;
-    }
-    
-    // Need to trigger populate on student list updates
-    const oldRender = render;
-    render = function() {
-      oldRender();
-      if (dmRecipientSelect) populateDMSelect();
-    };
-    
-    
-    dmRecipientSelect.addEventListener('change', () => {
-      if (dmRecipientSelect.value) {
-        lastReadDMs[dmRecipientSelect.value] = Date.now();
-        unreadDMCounts[dmRecipientSelect.value] = 0;
-        saveBadges();
-      }
-      renderMessages();
-    });
-
-    
     socket.on('connect', () => {
       socket.emit('fetch_messages');
     });
@@ -1626,7 +1607,34 @@
 
     
     
+
+    window.editMessage = function(id, currentContent) {
+      const newContent = prompt('Edit your message:', currentContent);
+      if (newContent !== null && newContent.trim() !== '' && newContent !== currentContent) {
+        socket.emit('edit_message', { id, content: newContent.trim() });
+      }
+    };
+    window.deleteMessage = function(id) {
+      if (confirm('Unsend this message? It will be deleted for everyone.')) {
+        socket.emit('delete_message', { id });
+      }
+    };
+
+    socket.on('message_edited', (updatedMsg) => {
+      const idx = allMessages.findIndex(m => m.id === updatedMsg.id);
+      if (idx !== -1) {
+        allMessages[idx] = updatedMsg;
+        renderMessages();
+      }
+    });
+
+    socket.on('message_deleted', ({ id }) => {
+      allMessages = allMessages.filter(m => m.id !== id);
+      renderMessages();
+    });
+
     socket.on('new_message', (m) => {
+
       allMessages.push(m);
       const isSidebarOpen = chatSidebar.classList.contains('open');
       const isGroupTab = tabGroupChat.classList.contains('active');
