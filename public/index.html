@@ -274,20 +274,26 @@
     <button class="chat-tab" id="tabDMs">DMs <span id="dmBadge" class="badge" style="display:none;">0</span></button>
   </div>
   
+
   <div id="groupChatView" class="chat-view active">
+    <div style="text-align: right; padding: 5px 15px; border-bottom: 1px solid var(--border-color);"><button id="btnClearGroup" class="small ghost" style="color:var(--neon-red); border-color:var(--neon-red);">Clear Chat</button></div>
     <div class="chat-messages" id="groupMessages"></div>
+
     <div class="chat-input-area">
       <input type="text" id="groupMsgInput" placeholder="Message everyone..." autocomplete="off">
       <button id="btnSendGroup" class="primary small">Send</button>
     </div>
   </div>
   
+
   <div id="dmChatView" class="chat-view">
-    <div id="dmUserSelect" style="padding: 10px; border-bottom: 1px solid var(--border-color);">
-      <select id="dmRecipientSelect" style="width: 100%; padding: 5px; background: var(--color-bg); color: var(--color-text); border: 1px solid var(--neon-cyan); border-radius: 4px;">
+    <div id="dmUserSelect" style="padding: 10px; border-bottom: 1px solid var(--border-color); display: flex; gap: 10px;">
+      <select id="dmRecipientSelect" style="flex:1; padding: 5px; background: var(--color-bg); color: var(--color-text); border: 1px solid var(--neon-cyan); border-radius: 4px;">
         <option value="">Select a user...</option>
       </select>
+      <button id="btnClearDm" class="small ghost" style="color:var(--neon-red); border-color:var(--neon-red);" disabled>Clear</button>
     </div>
+
     <div class="chat-messages" id="dmMessages"></div>
     <div class="chat-input-area">
       <input type="text" id="dmMsgInput" placeholder="Direct message..." autocomplete="off" disabled>

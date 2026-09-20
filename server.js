@@ -810,12 +810,24 @@ io.on('connection', (socket) => {
   // Join the user's personal room for direct messages
   socket.join(`user_${user.id}`);
 
+
   // Fetch recent messages
   socket.on('fetch_messages', async (data) => {
     try {
       const { rows } = await pool.query(
-        `SELECT * FROM messages WHERE batch_id = $1 AND created_at > $2 ORDER BY created_at ASC`, 
-        [user.batch_id, Date.now() - 86400000]
+        `SELECT m.* 
+         FROM messages m
+         LEFT JOIN hidden_messages hm ON hm.message_id = m.id AND hm.user_id = $1
+         LEFT JOIN chat_clears cc ON cc.user_id = $1 AND (
+           (m.receiver_id IS NULL AND cc.room_id = 'group') OR
+           (m.receiver_id IS NOT NULL AND cc.room_id = 'dm_' || CASE WHEN m.sender_id = $1 THEN m.receiver_id ELSE m.sender_id END)
+         )
+         WHERE m.batch_id = $2 
+           AND m.created_at > $3
+           AND hm.message_id IS NULL
+           AND (cc.cleared_at IS NULL OR m.created_at > cc.cleared_at)
+         ORDER BY m.created_at ASC`, 
+        [user.id, user.batch_id, Date.now() - 86400000]
       );
       // Filter out DMs not meant for this user
       const visible = rows.filter(m => !m.receiver_id || m.receiver_id === user.id || m.sender_id === user.id);
@@ -825,6 +837,40 @@ io.on('connection', (socket) => {
     }
   });
 
+
+
+  socket.on('mark_delivered', async ({ ids }) => {
+     if (!ids || !ids.length) return;
+     try {
+       await pool.query(`UPDATE messages SET read_status = 'delivered' WHERE id = ANY($1) AND receiver_id = $2 AND read_status = 'sent'`, [ids, user.id]);
+       io.to(`batch_${user.batch_id}`).emit('messages_status_update', { ids, status: 'delivered' });
+     } catch(e) {}
+  });
+
+  socket.on('mark_read', async ({ ids }) => {
+     if (!ids || !ids.length) return;
+     try {
+       await pool.query(`UPDATE messages SET read_status = 'read' WHERE id = ANY($1) AND receiver_id = $2 AND read_status IN ('sent', 'delivered')`, [ids, user.id]);
+       io.to(`batch_${user.batch_id}`).emit('messages_status_update', { ids, status: 'read' });
+     } catch(e) {}
+  });
+
+  socket.on('hide_message', async ({ id }) => {
+    try {
+      await pool.query(`INSERT INTO hidden_messages (user_id, message_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [user.id, id]);
+    } catch(e) {}
+  });
+
+  socket.on('clear_chat', async ({ isGroup, other_id }) => {
+    try {
+      const room_id = isGroup ? 'group' : `dm_${other_id}`;
+      await pool.query(`
+        INSERT INTO chat_clears (user_id, room_id, cleared_at) 
+        VALUES ($1, $2, $3)
+        ON CONFLICT (user_id, room_id) DO UPDATE SET cleared_at = EXCLUDED.cleared_at
+      `, [user.id, room_id, Date.now()]);
+    } catch(e) {}
+  });
 
   socket.on('edit_message', async (data) => {
     try {
@@ -867,6 +913,7 @@ io.on('connection', (socket) => {
 
   // Handle new message
 
+
   socket.on('send_message', async (data) => {
     try {
       const { content, receiver_id } = data;
@@ -882,16 +929,26 @@ io.on('connection', (socket) => {
       const msg = result.rows[0];
       
       if (receiver_id) {
-        // Direct message
         io.to(`user_${receiver_id}`).emit('new_message', msg);
-        // Echo back to sender
-        socket.emit('new_message', msg);
+        io.to(`user_${user.id}`).emit('new_message', msg);
       } else {
-        // Group message
         io.to(`batch_${user.batch_id}`).emit('new_message', msg);
       }
+
+      // Cleanup 24h
+      pool.query(`DELETE FROM messages WHERE created_at < $1`, [now - 86400000]).catch(console.error);
+      
+      // Cleanup 100 limit
+      const room_condition = receiver_id ? `batch_id = $1 AND ((sender_id = $2 AND receiver_id = $3) OR (sender_id = $3 AND receiver_id = $2))` : `batch_id = $1 AND receiver_id IS NULL`;
+      const room_args = receiver_id ? [user.batch_id, user.id, receiver_id] : [user.batch_id];
+      pool.query(`
+        DELETE FROM messages WHERE id IN (
+          SELECT id FROM messages WHERE ${room_condition} ORDER BY created_at DESC OFFSET 100
+        )
+      `, room_args).catch(console.error);
+
     } catch(err) {
-      console.error('Socket DB error', err);
+      console.error('Socket Send DB error', err);
     }
   });
 });
@@ -953,7 +1010,23 @@ async function initDb() {
         created_at      BIGINT NOT NULL
       );
       
+
       ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT false;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_status TEXT DEFAULT 'sent';
+      
+      CREATE TABLE IF NOT EXISTS hidden_messages (
+        user_id TEXT NOT NULL,
+        message_id INT NOT NULL,
+        PRIMARY KEY (user_id, message_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS chat_clears (
+        user_id TEXT NOT NULL,
+        room_id TEXT NOT NULL,
+        cleared_at BIGINT NOT NULL,
+        PRIMARY KEY (user_id, room_id)
+      );
+
       
       CREATE TABLE IF NOT EXISTS delete_requests (
         id              SERIAL PRIMARY KEY,

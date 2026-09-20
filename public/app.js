@@ -326,7 +326,31 @@
         batchSetupModal.classList.remove('open');
         btnInviteCode.style.display = 'inline-block';
         if (btnLeaveBatch) btnLeaveBatch.style.display = 'inline-block';
-        const btnOpenGroupChat = document.getElementById('btnOpenGroupChat');
+    
+    const btnClearGroup = document.getElementById('btnClearGroup');
+    if (btnClearGroup) {
+      btnClearGroup.addEventListener('click', () => {
+        if (confirm('Clear all group chat messages for yourself?')) {
+          socket.emit('clear_chat', { isGroup: true });
+          allMessages = allMessages.filter(m => m.receiver_id);
+          renderMessages();
+        }
+      });
+    }
+
+    const btnClearDm = document.getElementById('btnClearDm');
+    if (btnClearDm) {
+      btnClearDm.addEventListener('click', () => {
+        const otherId = dmRecipientSelect.value;
+        if (otherId && confirm('Clear this DM conversation for yourself?')) {
+          socket.emit('clear_chat', { isGroup: false, other_id: otherId });
+          allMessages = allMessages.filter(m => !m.receiver_id || (m.sender_id !== otherId && m.receiver_id !== otherId));
+          renderMessages();
+        }
+      });
+    }
+
+    const btnOpenGroupChat = document.getElementById('btnOpenGroupChat');
         if (btnOpenGroupChat) btnOpenGroupChat.style.display = 'inline-block';
         
         if (currentUser.role === 'admin') {
@@ -1514,20 +1538,49 @@
     let allMessages = [];
     
 
+
     function buildMsgHtml(m) {
       const isMine = m.sender_id === currentUser.id;
       const sender = students.find(s => s.id === m.sender_id);
       const editedTag = m.is_edited ? ' <span style="font-size:0.7em; color:var(--muted);">(edited)</span>' : '';
-      let controls = '';
-      if (isMine) {
-        controls = `
-          <div class="msg-controls" style="display:inline-block; margin-left:10px; opacity:0.5; cursor:pointer;">
-            <i class="fas fa-edit" onclick="window.editMessage(${m.id}, '${escapeHtml(m.content).replace(/'/g, "\\'").replace(/"/g, "&quot;")}')" title="Edit" style="margin-right:5px;"></i>
-            <i class="fas fa-trash-alt" onclick="window.deleteMessage(${m.id})" title="Unsend"></i>
-          </div>
-        `;
+      
+      let ticks = '';
+      if (isMine && m.receiver_id) {
+        if (m.read_status === 'read') {
+          ticks = ' <span style="color:#0f0; margin-left:5px; font-size:0.8em;" title="Read">✓✓</span>';
+        } else if (m.read_status === 'delivered') {
+          ticks = ' <span style="color:var(--muted); margin-left:5px; font-size:0.8em;" title="Delivered">✓✓</span>';
+        } else {
+          ticks = ' <span style="color:var(--muted); margin-left:5px; font-size:0.8em;" title="Sent">✓</span>';
+        }
       }
+
+      let controls = `<div class="msg-controls" style="display:inline-block; margin-left:10px; opacity:0.5; cursor:pointer;">`;
+      if (isMine) {
+        controls += `<i class="fas fa-edit" onclick="window.editMessage(${m.id}, '${escapeHtml(m.content).replace(/'/g, "\'").replace(/"/g, "&quot;")}')" title="Edit" style="margin-right:7px;"></i>`;
+        controls += `<i class="fas fa-trash-alt" onclick="window.deleteMessage(${m.id})" title="Delete for everyone" style="margin-right:7px; color:var(--neon-red);"></i>`;
+      }
+      controls += `<i class="fas fa-eye-slash" onclick="window.hideMessage(${m.id})" title="Delete for me"></i></div>`;
+      
+      return `<strong>${isMine ? 'You' : escapeHtml(sender ? sender.name : 'Unknown')}</strong>: ${escapeHtml(m.content)}${editedTag}${ticks}${controls}`;
+    }
+
       return `<strong>${isMine ? 'You' : escapeHtml(sender ? sender.name : 'Unknown')}</strong>: ${escapeHtml(m.content)}${editedTag}${controls}`;
+    }
+
+
+    function markDMsAsRead(sender_id) {
+      const unreadIds = allMessages
+        .filter(m => m.receiver_id === currentUser.id && m.sender_id === sender_id && m.read_status !== 'read')
+        .map(m => m.id);
+      if (unreadIds.length > 0) {
+        socket.emit('mark_read', { ids: unreadIds });
+        unreadIds.forEach(id => {
+           const msg = allMessages.find(x => x.id === id);
+           if (msg) msg.read_status = 'read';
+        });
+        renderMessages();
+      }
     }
 
     function renderMessages() {
@@ -1569,18 +1622,26 @@
     });
     
     
+
     socket.on('recent_messages', (msgs) => {
       allMessages = msgs;
       
-      // Calculate unread from history
       unreadGroupCount = 0;
       unreadDMCounts = {};
       const isSidebarOpen = chatSidebar.classList.contains('open');
       const isGroupTab = tabGroupChat.classList.contains('active');
       const isDMTab = tabDMs.classList.contains('active');
       
+      const deliveredIds = [];
+      const readIds = [];
+      
       msgs.forEach(m => {
         if (m.sender_id === currentUser.id) return;
+        
+        if (m.receiver_id && m.read_status === 'sent') {
+           deliveredIds.push(m.id);
+        }
+        
         const msgTime = new Date(m.created_at).getTime();
         if (m.receiver_id) {
           const lr = lastReadDMs[m.sender_id] || 0;
@@ -1588,7 +1649,8 @@
              if (!isSidebarOpen || !isDMTab || dmRecipientSelect.value !== m.sender_id) {
                unreadDMCounts[m.sender_id] = (unreadDMCounts[m.sender_id] || 0) + 1;
              } else {
-               lastReadDMs[m.sender_id] = Date.now(); // update as read
+               lastReadDMs[m.sender_id] = Date.now();
+               if (m.read_status !== 'read') readIds.push(m.id);
              }
           }
         } else {
@@ -1602,8 +1664,13 @@
         }
       });
       saveBadges();
+      
+      if (readIds.length > 0) socket.emit('mark_read', { ids: readIds });
+      else if (deliveredIds.length > 0) socket.emit('mark_delivered', { ids: deliveredIds });
+      
       renderMessages();
     });
+
 
     
     
@@ -1614,6 +1681,27 @@
         socket.emit('edit_message', { id, content: newContent.trim() });
       }
     };
+
+    window.hideMessage = function(id) {
+      if (confirm('Delete this message just for yourself?')) {
+        socket.emit('hide_message', { id });
+        allMessages = allMessages.filter(m => m.id !== id);
+        renderMessages();
+      }
+    };
+
+    socket.on('messages_status_update', ({ ids, status }) => {
+      let changed = false;
+      ids.forEach(id => {
+        const msg = allMessages.find(m => m.id === id);
+        if (msg) {
+          msg.read_status = status;
+          changed = true;
+        }
+      });
+      if (changed) renderMessages();
+    });
+
     window.deleteMessage = function(id) {
       if (confirm('Unsend this message? It will be deleted for everyone.')) {
         socket.emit('delete_message', { id });
@@ -1633,20 +1721,29 @@
       renderMessages();
     });
 
-    socket.on('new_message', (m) => {
 
+    socket.on('new_message', (m) => {
       allMessages.push(m);
       const isSidebarOpen = chatSidebar.classList.contains('open');
       const isGroupTab = tabGroupChat.classList.contains('active');
       const isDMTab = tabDMs.classList.contains('active');
       
       if (m.receiver_id) {
-        if (!isSidebarOpen || !isDMTab || dmRecipientSelect.value !== m.sender_id) {
-          if (m.sender_id !== currentUser.id) {
+        if (m.sender_id !== currentUser.id) {
+          if (isSidebarOpen && isDMTab && dmRecipientSelect.value === m.sender_id) {
+            socket.emit('mark_read', { ids: [m.id] });
+            m.read_status = 'read';
+            lastReadDMs[m.sender_id] = Date.now();
+            saveBadges();
+            renderMessages();
+          } else {
+            socket.emit('mark_delivered', { ids: [m.id] });
             unreadDMCounts[m.sender_id] = (unreadDMCounts[m.sender_id] || 0) + 1;
             saveBadges();
           }
-        } else {
+        }
+      } else {
+
           lastReadDMs[m.sender_id] = Date.now();
           saveBadges();
           renderMessages();
@@ -1689,6 +1786,30 @@
     
     // UI Toggles
     
+
+    const btnClearGroup = document.getElementById('btnClearGroup');
+    if (btnClearGroup) {
+      btnClearGroup.addEventListener('click', () => {
+        if (confirm('Clear all group chat messages for yourself?')) {
+          socket.emit('clear_chat', { isGroup: true });
+          allMessages = allMessages.filter(m => m.receiver_id);
+          renderMessages();
+        }
+      });
+    }
+
+    const btnClearDm = document.getElementById('btnClearDm');
+    if (btnClearDm) {
+      btnClearDm.addEventListener('click', () => {
+        const otherId = dmRecipientSelect.value;
+        if (otherId && confirm('Clear this DM conversation for yourself?')) {
+          socket.emit('clear_chat', { isGroup: false, other_id: otherId });
+          allMessages = allMessages.filter(m => !m.receiver_id || (m.sender_id !== otherId && m.receiver_id !== otherId));
+          renderMessages();
+        }
+      });
+    }
+
     const btnOpenGroupChat = document.getElementById('btnOpenGroupChat');
     if (btnOpenGroupChat) {
       btnOpenGroupChat.addEventListener('click', () => {
