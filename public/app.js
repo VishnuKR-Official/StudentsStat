@@ -218,7 +218,12 @@
   
   if (btnLandingLogin) {
     btnLandingLogin.addEventListener('click', () => {
-      btnLoginToggle.click();
+      authMode = 'login';
+      authModal.classList.add('open');
+      authNameField.style.display = 'none';
+      authToggleMode.textContent = 'Need an account? Register';
+      authSubmit.textContent = 'Login';
+      authEmail.focus();
     });
   }
 
