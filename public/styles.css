@@ -293,3 +293,16 @@ footer{max-width:1080px;margin:40px auto 0;color:var(--muted);font-size:0.78rem;
 
 .btn-dm { background: none; border: 1px solid var(--line); border-radius: 16px; padding: 4px 12px; display: inline-flex; align-items: center; gap: 5px; color: var(--muted); cursor: pointer; transition: all 0.2s; margin-left: auto; font-size: 0.85rem; }
 .btn-dm:hover { color: var(--gold); border-color: var(--gold); background: rgba(231,183,64,0.1); }
+
+
+.card a {
+  color: var(--teal);
+  font-size: 1.2rem;
+  transition: all 0.2s ease;
+  margin-right: 10px;
+}
+.card a:hover {
+  color: var(--tier2);
+  text-shadow: 0 0 8px var(--tier2);
+  transform: scale(1.1);
+}

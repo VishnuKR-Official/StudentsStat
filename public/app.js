@@ -1720,6 +1720,7 @@
 
 
 
+
     socket.on('new_message', (m) => {
       allMessages.push(m);
       const isSidebarOpen = chatSidebar.classList.contains('open');
@@ -1739,6 +1740,9 @@
             unreadDMCounts[m.sender_id] = (unreadDMCounts[m.sender_id] || 0) + 1;
             saveBadges();
           }
+        } else {
+          // I sent this message
+          renderMessages();
         }
       } else {
         if (!isSidebarOpen || !isGroupTab) {
@@ -1747,8 +1751,10 @@
             saveBadges();
           }
         } else {
-          lastReadGroup = Date.now();
-          saveBadges();
+          if (m.sender_id !== currentUser.id) {
+            lastReadGroup = Date.now();
+            saveBadges();
+          }
           renderMessages();
         }
       }
