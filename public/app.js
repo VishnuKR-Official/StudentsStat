@@ -87,6 +87,53 @@
   const API = '/api/students';
 
   let students = [];
+
+  let unreadGroupCount = parseInt(localStorage.getItem('unreadGroupCount') || '0');
+  let unreadDMCounts = JSON.parse(localStorage.getItem('unreadDMCounts') || '{}');
+  
+  window.saveBadges = function() {
+    localStorage.setItem('unreadGroupCount', unreadGroupCount);
+    localStorage.setItem('unreadDMCounts', JSON.stringify(unreadDMCounts));
+    window.updateBadgeUI();
+  }
+  
+  window.updateBadgeUI = function() {
+    const groupBadge = document.getElementById('groupChatBadge');
+    if (groupBadge) {
+      if (unreadGroupCount > 0) {
+        groupBadge.style.display = 'flex';
+        groupBadge.textContent = unreadGroupCount;
+      } else {
+        groupBadge.style.display = 'none';
+      }
+    }
+    
+    let totalDMs = 0;
+    for (const uid in unreadDMCounts) {
+      const count = unreadDMCounts[uid];
+      totalDMs += count;
+      const cardBadge = document.getElementById('cardBadge_' + uid);
+      if (cardBadge) {
+        if (count > 0) {
+          cardBadge.style.display = 'flex';
+          cardBadge.textContent = count;
+        } else {
+          cardBadge.style.display = 'none';
+        }
+      }
+    }
+    
+    const dmBadgeTab = document.getElementById('dmBadge');
+    if (dmBadgeTab) {
+      if (totalDMs > 0) {
+        dmBadgeTab.style.display = 'flex';
+        dmBadgeTab.textContent = totalDMs;
+      } else {
+        dmBadgeTab.style.display = 'none';
+      }
+    }
+  }
+
   let editingId = null;
   let pendingAvatar = null;
   let prevPositions = {};
@@ -389,6 +436,7 @@
                 currentUser.batch_name = newName.trim();
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 init();
+  setTimeout(() => { if (window.updateBadgeUI) window.updateBadgeUI(); }, 1000);
               } catch(e) { showMessage('Error', e.message); }
             }
           });
@@ -466,6 +514,7 @@
         authModal.classList.remove('open');
         updateAuthUI();
         init();
+  setTimeout(() => { if (window.updateBadgeUI) window.updateBadgeUI(); }, 1000);
         showMessage('Success', 'Logged in as Global Admin');
       } catch (e) { showMessage('Error', 'Invalid Admin Password'); }
     });
@@ -673,7 +722,7 @@
         ${s.github ? `<a href="${escapeHtml(s.github)}" target="_blank" title="GitHub"><i class="fab fa-github"></i></a>` : ''}
         ${s.linkedin ? `<a href="${escapeHtml(s.linkedin)}" target="_blank" title="LinkedIn"><i class="fab fa-linkedin"></i></a>` : ''}
         ${s.x_account ? `<a href="${escapeHtml(s.x_account)}" target="_blank" title="X (Twitter)"><i class="fab fa-x-twitter"></i></a>` : ''}
-        ${isOtherUser ? `<button class="btn-dm" data-act="dm" title="Direct Message"><i class="fas fa-comment"></i> One to One Chat</button>` : ''}
+        ${isOtherUser ? `<button class="btn-dm" data-act="dm" title="Direct Message" style="position:relative;"><i class="fas fa-comment"></i> One to One Chat <span id="cardBadge_\" class="badge" style="display:none; top:-8px; right:-8px; width:20px; height:20px; font-size:0.65rem;">0</span></button>` : ''}
       </div>
       ${canEdit ? `
       <div class="card-controls" style="flex-direction: column; align-items: stretch; gap: 8px; margin-top: 10px;">
@@ -708,10 +757,15 @@
         if (chatSidebar) {
           chatSidebar.classList.add('open');
           
+          
           const tabDMs = document.getElementById('tabDMs');
           const tabGroupChat = document.getElementById('tabGroupChat');
           const dmChatView = document.getElementById('dmChatView');
           const groupChatView = document.getElementById('groupChatView');
+          
+          unreadDMCounts[s.id] = 0;
+          saveBadges();
+
           
           if (tabDMs && dmChatView) {
             tabDMs.classList.add('active');
@@ -1498,7 +1552,15 @@
       if (dmRecipientSelect) populateDMSelect();
     };
     
-    dmRecipientSelect.addEventListener('change', renderMessages);
+    
+    dmRecipientSelect.addEventListener('change', () => {
+      if (dmRecipientSelect.value) {
+        unreadDMCounts[dmRecipientSelect.value] = 0;
+        saveBadges();
+      }
+      renderMessages();
+    });
+
     
     socket.on('connect', () => {
       socket.emit('fetch_messages');
@@ -1509,9 +1571,31 @@
       renderMessages();
     });
     
-    socket.on('new_message', (msg) => {
-      allMessages.push(msg);
-      renderMessages();
+    socket.on('new_message', (m) => {
+      allMessages.push(m);
+      const isSidebarOpen = chatSidebar.classList.contains('open');
+      const isGroupTab = tabGroupChat.classList.contains('active');
+      const isDMTab = tabDMs.classList.contains('active');
+      
+      if (m.receiver_id) {
+        if (!isSidebarOpen || !isDMTab || dmRecipientSelect.value !== m.sender_id) {
+          if (m.sender_id !== currentUser.id) {
+            unreadDMCounts[m.sender_id] = (unreadDMCounts[m.sender_id] || 0) + 1;
+            saveBadges();
+          }
+        } else {
+          renderMessages();
+        }
+      } else {
+        if (!isSidebarOpen || !isGroupTab) {
+          if (m.sender_id !== currentUser.id) {
+            unreadGroupCount++;
+            saveBadges();
+          }
+        } else {
+          renderMessages();
+        }
+      }
     });
     
     function sendMsg(content, receiver_id = null) {
@@ -1536,10 +1620,14 @@
     });
     
     // UI Toggles
+    
     const btnOpenGroupChat = document.getElementById('btnOpenGroupChat');
     if (btnOpenGroupChat) {
       btnOpenGroupChat.addEventListener('click', () => {
+        unreadGroupCount = 0;
+        saveBadges();
         chatSidebar.classList.add('open');
+
         tabGroupChat.click();
       });
     }
@@ -1548,8 +1636,12 @@
       chatSidebar.classList.remove('open');
     });
     
+    
     tabGroupChat.addEventListener('click', () => {
+      unreadGroupCount = 0;
+      saveBadges();
       tabGroupChat.classList.add('active');
+
       tabDMs.classList.remove('active');
       groupChatView.classList.add('active');
       dmChatView.classList.remove('active');
@@ -1587,6 +1679,7 @@
   };
 
   init();
+  setTimeout(() => { if (window.updateBadgeUI) window.updateBadgeUI(); }, 1000);
   // Refresh periodically so streak/emoji state (and other people's edits) stay current
   setInterval(loadStudents, 30000);
 
