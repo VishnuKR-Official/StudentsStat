@@ -12,6 +12,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
+const { OAuth2Client } = require('google-auth-library');
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-dev-secret-key-123';
 
@@ -204,6 +207,49 @@ app.post('/api/admin/students', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'DB error' });
+  }
+});
+
+// Expose public config to frontend
+app.get('/api/config', (req, res) => {
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null
+  });
+});
+
+// Google Sign-In Endpoint
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) return res.status(400).json({ error: 'Missing credential' });
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    const payload = ticket.getPayload();
+    const { email, name, picture } = payload;
+    
+    // Check if user exists
+    let { rows } = await pool.query('SELECT * FROM students WHERE email = $1', [email]);
+    let user;
+    if (rows.length === 0) {
+       // Register user automatically
+       const id = crypto.randomUUID();
+       await pool.query(
+         'INSERT INTO students (id, name, email, level, created_at, avatar, role) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+         [id, name, email, 1, Date.now(), picture, 'student']
+       );
+       user = { id, name, email, level: 1, avatar: picture, role: 'student', batch_id: null, created_at: Date.now() };
+    } else {
+       user = rows[0];
+    }
+    
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role, batch_id: user.batch_id }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: rowToStudent(user) });
+  } catch (err) {
+    console.error('Google Auth Error:', err);
+    res.status(401).json({ error: 'Invalid Google token. Ensure GOOGLE_CLIENT_ID matches.' });
   }
 });
 

@@ -2360,3 +2360,51 @@ window.enterGlobalBatch = async function(batch_id) {
   window.addEventListener('appinstalled', () => {
     if (btnInstallApp) btnInstallApp.style.display = 'none';
   });
+
+  // Google Sign-In Initialization
+  window.handleGoogleCredential = async (response) => {
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Google login failed');
+      
+      localStorage.setItem('rankBoardToken', data.token);
+      authToken = data.token;
+      currentUser = data.user;
+      authModal.classList.remove('open');
+      updateAuthUI();
+      loadData();
+    } catch (err) {
+      showMessage('Google Login Error', err.message);
+    }
+  };
+
+  fetch('/api/config')
+    .then(res => res.json())
+    .then(config => {
+      if (config.googleClientId && window.google) {
+        google.accounts.id.initialize({
+          client_id: config.googleClientId,
+          callback: handleGoogleCredential
+        });
+        const googleDiv = document.getElementById("googleSignInDiv");
+        if (googleDiv) {
+          google.accounts.id.renderButton(googleDiv, { 
+            theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'filled_black' : 'outline',
+            size: "large",
+            width: 300 
+          });
+        }
+      } else {
+        const googleDiv = document.getElementById("googleSignInDiv");
+        if (googleDiv) {
+          googleDiv.innerHTML = '<p style="color:var(--rose); font-size:0.8rem; text-align:center;">Google Login requires GOOGLE_CLIENT_ID in .env</p>';
+        }
+      }
+    })
+    .catch(err => console.error('Could not load config', err));
+})();
