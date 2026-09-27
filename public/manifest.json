@@ -1,6 +1,6 @@
 {
-  "name": "Rank Board",
-  "short_name": "Rank Board",
+  "name": "BrotoStat",
+  "short_name": "BrotoStat",
   "description": "Visualize and track student progress.",
   "start_url": "/",
   "display": "standalone",

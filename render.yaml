@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: rank-board-app
+    name: brotostat-app
     runtime: node
     buildCommand: npm install
     startCommand: npm start

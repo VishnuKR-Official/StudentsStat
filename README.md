@@ -1,4 +1,4 @@
-# 🚀 Student Rank Board — 52 Level Skill Tracker
+# 🚀 Student BrotoStat — 52 Level Skill Tracker
 
 [![Live App](https://img.shields.io/badge/Live%20App-studentsstat.onrender.com-brightgreen?style=for-the-badge&logo=render)](https://studentsstat.onrender.com)
 [![Database](https://img.shields.io/badge/Database-Supabase%20Postgres-blue?style=for-the-badge&logo=supabase)](https://supabase.com)
@@ -15,7 +15,7 @@ Instead of constantly asking classmates:
 - *"What are you studying this week?"*
 - *"Where are we on the learning roadmap?"*
 
-This app eliminates all that confusion! It gives our entire batch a single, shared rank board where everyone can:
+This app eliminates all that confusion! It gives our entire batch a single, shared BrotoStat where everyone can:
 1. **See Everyone's Level**: Track where each friend stands across **52 skill levels**.
 2. **View Current Topics**: Hover or click any profile to see what specific chapter, module, or topic they are currently studying.
 3. **Healthy Peer Pressure**: Friendly competition that motivates everyone to stay active and level up continuously.

@@ -1,4 +1,4 @@
-const CACHE_NAME = "rankboard-v7";
+const CACHE_NAME = "brotostat-v1";
 const ASSETS = [
   "/",
   "/index.html",

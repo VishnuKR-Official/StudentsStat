@@ -1,7 +1,7 @@
 {
-  "name": "rank-board-app",
+  "name": "brotostat-app",
   "version": "2.0.0",
-  "description": "Gamified student rank board, Postgres/Supabase-backed",
+  "description": "Gamified student BrotoStat, Postgres/Supabase-backed",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

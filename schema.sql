@@ -1,4 +1,4 @@
--- Rank Board schema — run this once in Supabase's SQL editor
+-- BrotoStat schema — run this once in Supabase's SQL editor
 -- (Database → SQL Editor → New query → paste → Run)
 
 CREATE TABLE IF NOT EXISTS students (

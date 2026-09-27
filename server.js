@@ -1,4 +1,4 @@
-// Rank Board server — Postgres/Supabase-backed.
+// BrotoStat server — Postgres/Supabase-backed.
 // Same API contract as the original flat-file version, so public/app.js and
 // public/index.html are untouched. Only the storage layer changed.
 
@@ -28,7 +28,7 @@ async function uploadAvatar(base64Str) {
   if (!base64Str || !base64Str.startsWith('data:image')) return base64Str;
   try {
     const result = await cloudinary.uploader.upload(base64Str, {
-      folder: 'rank-board-avatars',
+      folder: 'brotostat-avatars',
       width: 200,
       crop: "scale"
     });
@@ -883,7 +883,7 @@ app.post('/api/students/:id/delete-request', async (req, res) => {
 app.get('/api/export', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM students ORDER BY created_at ASC');
-    res.setHeader('Content-Disposition', 'attachment; filename="rankboard-backup.json"');
+    res.setHeader('Content-Disposition', 'attachment; filename="brotostat-backup.json"');
     res.json(rows.map(rowToStudent));
   } catch (err) {
     console.error(err);
@@ -1252,7 +1252,7 @@ cron.schedule('0 11 * * 1', async () => {
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`Rank Board running at http://localhost:${PORT}`);
+  console.log(`BrotoStat running at http://localhost:${PORT}`);
   initDb();
 });
 
