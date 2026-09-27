@@ -6,7 +6,8 @@
 //   1. Put your old students.json at ./data/students.json (or pass a path
 //      as the first CLI argument).
 //   2. Make sure .env has DATABASE_URL set.
-//   3. npm run migrate
+//   3. IMPORTANT: Run `npm start` at least once first so the database schema is auto-created.
+//   4. npm run migrate
 
 require('dotenv').config();
 const fs = require('fs');

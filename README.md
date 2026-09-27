@@ -67,9 +67,10 @@ If you want to run this board on your own computer:
    ```
 
 3. **Configure Environment Variables**:
-   Copy `.env.example` to `.env` and fill in your Supabase Postgres `DATABASE_URL`:
+   Copy `.env.example` to `.env` and fill in your Supabase Postgres `DATABASE_URL`.
+   **Important**: Use the "Connection pooler" IPv4 URL (port `6543`) since platforms like Render do not support Supabase's direct IPv6 endpoints!
    ```env
-   DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+   DATABASE_URL=postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
    PORT=3000
    ```
 

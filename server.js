@@ -112,15 +112,6 @@ function withComputed(s) {
   return { ...s, weeksStale, justLeveledUp };
 }
 
-// Ensure the domain column exists on startup
-(async function initDB() {
-  try {
-    await pool.query('ALTER TABLE students ADD COLUMN IF NOT EXISTS domain text DEFAULT \'\'');
-  } catch (err) {
-    console.error('Migration error:', err.message);
-  }
-})();
-
 // ==== Endpoints ==== //
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'secret';
