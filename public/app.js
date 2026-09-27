@@ -2372,12 +2372,12 @@ window.enterGlobalBatch = async function(batch_id) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Google login failed');
       
-      localStorage.setItem('rankBoardToken', data.token);
+      localStorage.setItem('authToken', data.token);
       authToken = data.token;
       currentUser = data.user;
       authModal.classList.remove('open');
       updateAuthUI();
-      loadData();
+      loadStudents();
     } catch (err) {
       showMessage('Google Login Error', err.message);
     }
