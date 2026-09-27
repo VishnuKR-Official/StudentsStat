@@ -1,6 +1,6 @@
 # 🚀 Student BrotoStat — 52 Level Skill Tracker
 
-[![Live App](https://img.shields.io/badge/Live%20App-brotostat.onrender.com-brightgreen?style=for-the-badge&logo=render)](https://brotostat.onrender.com)
+[![Live App](https://img.shields.io/badge/Live%20App-studentsstat.onrender.com-brightgreen?style=for-the-badge&logo=render)](https://studentsstat.onrender.com)
 [![Database](https://img.shields.io/badge/Database-Supabase%20Postgres-blue?style=for-the-badge&logo=supabase)](https://supabase.com)
 [![Node.js](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-green?style=for-the-badge&logo=nodedotjs)](https://nodejs.org)
 
