@@ -3,6 +3,17 @@
   let currentUser = null;
   try { currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null'); } catch(e) { localStorage.removeItem('currentUser'); }
   
+  const btnThemeToggle = document.getElementById('btnThemeToggle');
+  let currentTheme = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  if (btnThemeToggle) {
+    btnThemeToggle.addEventListener('click', () => {
+      currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', currentTheme);
+      localStorage.setItem('theme', currentTheme);
+    });
+  }
+
   // ---- Background Animation ----
   const canvas = document.getElementById('bgCanvas');
   const ctx = canvas.getContext('2d');
@@ -227,9 +238,287 @@
   updateTagline();
   setInterval(updateTagline, 10 * 60 * 1000);
 
-  const adminBadge = document.getElementById('adminBadge');
+  const btnAdminTools = document.getElementById('btnAdminTools');
+
+  const adminToolsModal = document.getElementById('adminToolsModal');
+  const btnAdminToolsClose = document.getElementById('btnAdminToolsClose');
+  const adminCreateUserName = document.getElementById('adminCreateUserName');
+  const adminCreateUserEmail = document.getElementById('adminCreateUserEmail');
+  const adminCreateUserPassword = document.getElementById('adminCreateUserPassword');
+  const btnAdminCreateUser = document.getElementById('btnAdminCreateUser');
+
+  if (btnAdminTools) {
+    btnAdminTools.addEventListener('click', () => {
+      adminToolsModal.classList.add('open');
+    });
+  }
+  if (btnAdminToolsClose) {
+    btnAdminToolsClose.addEventListener('click', () => {
+      adminToolsModal.classList.remove('open');
+    });
+  }
+  if (btnAdminCreateUser) {
+    btnAdminCreateUser.addEventListener('click', async () => {
+      const name = adminCreateUserName.value.trim();
+      const email = adminCreateUserEmail.value.trim();
+      const password = adminCreateUserPassword.value.trim();
+      if (!name || !email || !password) return showMessage('Error', 'All fields required');
+      try {
+        await api('/api/admin/students', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, batch_id: currentUser.batch_id, role: 'member' })
+        });
+        showMessage('Success', 'Student created successfully. Hand over the credentials!');
+        adminCreateUserName.value = '';
+        adminCreateUserEmail.value = '';
+        adminCreateUserPassword.value = '';
+        loadStudents();
+      } catch (e) {
+        showMessage('Error', e.message);
+      }
+    });
+  }
+
+  const exploreBatchesModal = document.getElementById('exploreBatchesModal');
+  const btnExploreBatches = document.getElementById('btnExploreBatches');
+  const btnExploreBatchesClose = document.getElementById('btnExploreBatchesClose');
+  const exploreBatchesList = document.getElementById('exploreBatchesList');
+
+  if (btnExploreBatches) {
+    btnExploreBatches.addEventListener('click', async () => {
+      exploreBatchesModal.classList.add('open');
+      exploreBatchesList.innerHTML = '<p>Loading...</p>';
+      try {
+        const batches = await api('/api/batches/all');
+        exploreBatchesList.innerHTML = batches.map(b => `
+          <div style="background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:15px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <strong style="font-size:1.1rem;">${escapeHtml(b.name)}</strong>
+              <button class="ghost small" onclick="loadExploreBatchStudents('${b.id}', this)">View Students</button>
+            </div>
+            <div id="explore-students-${b.id}" style="display:none; flex-direction:column; gap:5px; border-top:1px solid var(--line); padding-top:10px; margin-top:5px;"></div>
+          </div>
+        `).join('');
+      } catch (err) {
+        exploreBatchesList.innerHTML = `<p style="color:var(--rose)">Error: ${err.message}</p>`;
+      }
+    });
+  }
+  
+  if (btnExploreBatchesClose) {
+    btnExploreBatchesClose.addEventListener('click', () => {
+      exploreBatchesModal.classList.remove('open');
+    });
+  }
+
+  window.loadExploreBatchStudents = async (batchId, btnElement) => {
+    const container = document.getElementById(`explore-students-${batchId}`);
+    if (container.style.display === 'flex') {
+      container.style.display = 'none';
+      btnElement.innerText = 'View Students';
+      return;
+    }
+    btnElement.innerText = 'Loading...';
+    try {
+      const students = await api(`/api/batches/${batchId}/students`);
+      if (students.length === 0) {
+        container.innerHTML = '<p style="color:var(--muted); font-size:0.9rem;">No approved students in this batch.</p>';
+      } else {
+        container.innerHTML = students.map(s => `
+          <div style="display:flex; justify-content:space-between; padding:5px; background:var(--panel-hi); border-radius:4px; font-size:0.9rem;">
+            <span>${escapeHtml(s.name)} <span style="color:var(--muted); font-size:0.8rem;">(Lvl ${s.level})</span></span>
+            ${s.role === 'admin' || s.role === 'global_admin' ? '<span style="color:var(--gold);">Admin</span>' : ''}
+          </div>
+        `).join('');
+      }
+      container.style.display = 'flex';
+      btnElement.innerText = 'Hide Students';
+    } catch (err) {
+      container.innerHTML = `<p style="color:var(--rose)">${err.message}</p>`;
+      container.style.display = 'flex';
+      btnElement.innerText = 'Hide Students';
+    }
+  };
+
+  const combineStudyModal = document.getElementById('combineStudyModal');
+  const btnCombineStudyClose = document.getElementById('btnCombineStudyClose');
+  const btnCombineStudySchedule = document.getElementById('btnCombineStudySchedule');
+  const combineStudyList = document.getElementById('combineStudyList');
+
+  if (document.getElementById('btnCombineStudy')) {
+    document.getElementById('btnCombineStudy').addEventListener('click', () => {
+      combineStudyModal.classList.add('open');
+      combineStudyList.innerHTML = '';
+      if (!students || students.length === 0) {
+        combineStudyList.innerHTML = '<p>No students available.</p>';
+        return;
+      }
+      students.forEach(s => {
+        if (s.id !== currentUser.id) {
+          const div = document.createElement('div');
+          div.innerHTML = `
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+              <input type="checkbox" class="combine-student-cb" value="${escapeHtml(s.email || '')}" data-name="${escapeHtml(s.name)}">
+              <span>${escapeHtml(s.name)}</span>
+            </label>
+          `;
+          combineStudyList.appendChild(div);
+        }
+      });
+    });
+  }
+  
+  if (btnCombineStudyClose) {
+    btnCombineStudyClose.addEventListener('click', () => {
+      combineStudyModal.classList.remove('open');
+    });
+  }
+
+  if (btnCombineStudySchedule) {
+    btnCombineStudySchedule.addEventListener('click', () => {
+      const cbs = document.querySelectorAll('.combine-student-cb:checked');
+      const emails = Array.from(cbs).map(cb => cb.value).filter(e => e);
+      if (emails.length === 0) {
+        return showMessage('Error', 'Please select at least one student.');
+      }
+      const title = encodeURIComponent('Combine Study Session');
+      const details = encodeURIComponent('Join our combine study session!\n\nMeeting Link: https://meet.google.com/new');
+      const guestList = encodeURIComponent(emails.join(','));
+      const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&add=${guestList}`;
+      window.open(url, '_blank');
+      combineStudyModal.classList.remove('open');
+    });
+  }
 
   const messageModal = document.getElementById('messageModal');
+  const aiChatbotWrapper = document.getElementById('aiChatbotWrapper');
+  const btnToggleBot = document.getElementById('btnToggleBot');
+  const btnCloseBot = document.getElementById('btnCloseBot');
+  const btnSendBot = document.getElementById('btnSendBot');
+  const botInput = document.getElementById('botInput');
+  const botMessages = document.getElementById('botMessages');
+
+  if (btnToggleBot) {
+    btnToggleBot.addEventListener('click', () => {
+      aiChatbotWrapper.style.display = aiChatbotWrapper.style.display === 'none' ? 'flex' : 'none';
+    });
+  }
+  if (btnCloseBot) {
+    btnCloseBot.addEventListener('click', () => {
+      aiChatbotWrapper.style.display = 'none';
+    });
+  }
+  if (btnSendBot) {
+    const sendToBot = async () => {
+      const q = botInput.value.trim();
+      if (!q) return;
+      botInput.value = '';
+      
+      const userMsg = document.createElement('div');
+      userMsg.className = 'chat-msg mine';
+      userMsg.innerText = q;
+      botMessages.appendChild(userMsg);
+      botMessages.scrollTop = botMessages.scrollHeight;
+
+      const loadingMsg = document.createElement('div');
+      loadingMsg.className = 'chat-msg';
+      loadingMsg.style.cssText = 'background:var(--panel-hi); color:var(--muted); align-self:flex-start;';
+      loadingMsg.innerText = 'Thinking...';
+      botMessages.appendChild(loadingMsg);
+      botMessages.scrollTop = botMessages.scrollHeight;
+
+      try {
+        const res = await api('/api/bot/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q })
+        });
+        botMessages.removeChild(loadingMsg);
+        
+        const botMsg = document.createElement('div');
+        botMsg.className = 'chat-msg';
+        botMsg.style.cssText = 'background:var(--panel-hi); color:var(--text); align-self:flex-start;';
+        botMsg.innerText = res.answer;
+        botMessages.appendChild(botMsg);
+        botMessages.scrollTop = botMessages.scrollHeight;
+      } catch (err) {
+        botMessages.removeChild(loadingMsg);
+        const errMsg = document.createElement('div');
+        errMsg.className = 'chat-msg';
+        errMsg.style.cssText = 'background:var(--rose); color:#fff; align-self:flex-start;';
+        errMsg.innerText = 'Error: ' + err.message;
+        botMessages.appendChild(errMsg);
+      }
+    };
+    btnSendBot.addEventListener('click', sendToBot);
+    botInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') sendToBot();
+    });
+  }
+
+  const reviewsModal = document.getElementById('reviewsModal');
+  const btnFeedback = document.getElementById('btnFeedback');
+  const btnReviewsClose = document.getElementById('btnReviewsClose');
+  const btnSubmitReview = document.getElementById('btnSubmitReview');
+  const reviewsList = document.getElementById('reviewsList');
+
+  const loadReviews = async () => {
+    reviewsList.innerHTML = '<p>Loading...</p>';
+    try {
+      const data = await api('/api/reviews');
+      if (data.length === 0) {
+        reviewsList.innerHTML = '<p>No feedback yet.</p>';
+        return;
+      }
+      reviewsList.innerHTML = data.map(r => `
+        <div style="background:var(--panel-hi); border-radius:8px; padding:10px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+            <strong>${escapeHtml(r.name)}</strong>
+            <span style="color:var(--gold)">${'⭐'.repeat(r.rating)}</span>
+          </div>
+          <p style="margin:0; font-size:0.9rem;">${escapeHtml(r.comment)}</p>
+        </div>
+      `).join('');
+    } catch (err) {
+      reviewsList.innerHTML = `<p style="color:var(--rose)">Error: ${err.message}</p>`;
+    }
+  };
+
+  if (btnFeedback) {
+    btnFeedback.addEventListener('click', () => {
+      if (!authToken) return showMessage('Error', 'You must be logged in to leave feedback.');
+      reviewsModal.classList.add('open');
+      loadReviews();
+    });
+  }
+  if (btnReviewsClose) {
+    btnReviewsClose.addEventListener('click', () => {
+      reviewsModal.classList.remove('open');
+    });
+  }
+  if (btnSubmitReview) {
+    btnSubmitReview.addEventListener('click', async () => {
+      const rating = document.getElementById('reviewRating').value;
+      const comment = document.getElementById('reviewComment').value;
+      btnSubmitReview.disabled = true;
+      try {
+        await api('/api/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating: parseInt(rating), comment })
+        });
+        document.getElementById('reviewComment').value = '';
+        await loadReviews();
+        showMessage('Success', 'Thank you for your feedback!');
+      } catch (err) {
+        showMessage('Error', err.message);
+      } finally {
+        btnSubmitReview.disabled = false;
+      }
+    });
+  }
+
   const messageTitle = document.getElementById('messageTitle');
   const messageBody = document.getElementById('messageBody');
   document.getElementById('btnMessageClose').addEventListener('click', () => {
@@ -290,10 +579,12 @@
     btnLogout.style.display = 'none';
     btnJoinRace.style.display = 'none';
     btnInviteCode.style.display = 'none';
+    const btnCombineStudy = document.getElementById('btnCombineStudy');
+    if (btnCombineStudy) btnCombineStudy.style.display = 'none';
     btnManageApprovals.style.display = 'none';
     if (btnLeaveBatch) btnLeaveBatch.style.display = 'none';
     batchSetupModal.classList.remove('open');
-    if (adminBadge) adminBadge.style.display = 'none';
+    if (btnAdminTools) btnAdminTools.style.display = 'none';
     
     if (authToken && currentUser) {
       if (landingHero) landingHero.style.display = 'none';
@@ -325,6 +616,8 @@
       } else if (currentUser.batch_status === 'approved') {
         batchSetupModal.classList.remove('open');
         btnInviteCode.style.display = 'inline-block';
+        const btnCombineStudy = document.getElementById('btnCombineStudy');
+        if (btnCombineStudy) btnCombineStudy.style.display = 'inline-block';
         if (btnLeaveBatch) btnLeaveBatch.style.display = 'inline-block';
     
     const btnClearGroup = document.getElementById('btnClearGroup');
@@ -354,7 +647,7 @@
         if (btnOpenGroupChat) btnOpenGroupChat.style.display = 'inline-block';
         
         if (currentUser.role === 'admin') {
-          if (adminBadge) adminBadge.style.display = 'inline-block';
+          if (btnAdminTools) btnAdminTools.style.display = 'inline-block';
           btnManageApprovals.style.display = 'inline-block';
         }
         
@@ -497,7 +790,7 @@
     } catch (e) {
       modeBadge.classList.add('ro');
       modeBadge.textContent = 'Could not reach the server';
-      footerNote.textContent = 'Check that the Rank Board server is running.';
+      footerNote.textContent = 'Check that the BrotoStat server is running.';
     }
   }
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rank Board — 52 Levels</title>
+<title>BrotoStat — 52 Levels</title>
 <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,10 +17,10 @@
 <body>
 <canvas id="bgCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1;"></canvas>
 <div class="wrap">
-  <div id="landingHero" class="landing-hero" style="display:block; position: relative; overflow: hidden; background: #0B0F1A;">
+  <div id="landingHero" class="landing-hero" style="display:block; position: relative; overflow: hidden;">
     <canvas id="landingCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:0;"></canvas>
     <div style="position:relative; z-index:1;">
-      <h1 class="glitch" data-text="RANK BOARD">RANK BOARD</h1>
+      <h1 class="glitch" data-text="BROTOSTAT">BROTOSTAT</h1>
       <p>The Ultimate Cyberpunk Tracking Experience</p>
       <button class="primary large" id="btnLandingLogin">Enter the Grid</button>
     </div>
@@ -29,7 +29,7 @@
   <div id="appContent" style="display:none;">
     <header class="top">
       <div class="title-block">
-        <h1>Rank <span>Board</span></h1>
+        <h1>Broto<span>Stat</span></h1>
         <div id="motivationalTagline" class="tagline"></div>
         <p>Track progress across 52 levels. Hover a profile for what they're currently learning.</p>
         <div class="mode-badge" id="modeBadge">Connecting…</div>
@@ -42,6 +42,9 @@
     </header>
 
     <div class="toolbar" id="toolbar">
+      <button class="ghost small" id="btnThemeToggle" title="Toggle Theme">🌓 Theme</button>
+      <button class="ghost small" id="btnExploreBatches">🔍 Explore Batches</button>
+      <button class="ghost small" id="btnFeedback">⭐ Feedback</button>
       <button class="primary" id="btnJoinRace" style="display:none;">+ Join Race</button>
       <button class="primary small" id="btnInstallApp" style="display:none;"><i class="fas fa-download"></i> Install App</button>
       <button class="ghost small" id="btnLoginToggle">Login / Register</button>
@@ -49,9 +52,10 @@
       <!-- Batch specific toolbar items -->
       <button class="ghost small" id="btnInviteCode" style="display:none;" title="Copy Invite Link">🔗 Invite</button>
       <button class="ghost small" id="btnManageApprovals" style="display:none; position: relative;">Approvals <span id="approvalsBadge" class="badge" style="display:none;">0</span></button>
+      <button class="ghost small" id="btnCombineStudy" style="display:none; color: var(--teal); border-color: var(--teal);">📅 Combine Study</button>
       <button class="ghost small" id="btnOpenGroupChat" style="display:none; color: var(--teal); border-color: var(--teal); position: relative;"><i class="fas fa-comments"></i> Group Chat <span id="groupChatBadge" class="badge" style="display:none;">0</span></button>
       
-      <span id="adminBadge" style="display:none; color:var(--gold); font-weight:bold; margin-right:15px; margin-left:15px;">👑 Admin</span>
+      <button class="ghost small" id="btnAdminTools" style="display:none; color:var(--gold); border-color:var(--gold);">👑 Admin Tools</button>
       <button class="ghost small" id="btnLeaveBatch" style="display:none; color: var(--neon-red); border-color: var(--neon-red);">Leave Batch</button>
       <button class="ghost small" id="btnLogout" style="display:none;">Logout</button>
       
@@ -93,6 +97,14 @@
             <button class="primary" id="authSubmit">Login</button>
           </div>
         </div>
+        <div style="margin: 15px 0; text-align: center; color: var(--muted); position: relative;">
+          <hr style="border: 0; border-top: 1px solid var(--line); position: absolute; width: 100%; top: 50%; z-index: 1;">
+          <span style="background: var(--bg); padding: 0 10px; position: relative; z-index: 2;">OR</span>
+        </div>
+        <button type="button" class="ghost" id="btnGoogleLogin" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;" onclick="document.getElementById('messageTitle').innerText='Coming Soon'; document.getElementById('messageBody').innerText='Google Login requires Client ID configuration in .env'; document.getElementById('messageModal').classList.add('open');">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google" style="width: 18px; height: 18px;">
+          Continue with Google
+        </button>
       </div>
     </div>
 
@@ -121,8 +133,89 @@
           <h4 style="margin-top: 0; color: var(--rose);">Global Admin: All Batches</h4>
           <div id="globalAdminBatchesList" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px;"></div>
         </div>
+        
+        <div style="margin-top: 20px; text-align: center;">
+          <button class="ghost" onclick="document.getElementById('btnExploreBatches').click();">🔍 Explore Other Batches</button>
+        </div>
       </div>
     </div>
+    
+    <!-- Admin Tools Modal -->
+    <div class="modal-overlay" id="adminToolsModal">
+      <div class="modal-box" style="max-width: 500px;">
+        <h3>Admin Tools</h3>
+        <div style="margin-bottom: 20px; border-bottom: 1px solid var(--line); padding-bottom: 20px;">
+          <h4 style="margin-top: 0; color: var(--gold);">Create User (Hand over credentials)</h4>
+          <div style="display:flex; flex-direction: column; gap:10px;">
+            <input type="text" id="adminCreateUserName" placeholder="Student Name">
+            <input type="email" id="adminCreateUserEmail" placeholder="Student Email">
+            <input type="text" id="adminCreateUserPassword" placeholder="Temporary Password">
+            <button class="primary small" id="btnAdminCreateUser">Create Student</button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost" id="btnAdminToolsClose">Close</button>
+        </div>
+      </div>
+    </div>
+    <!-- Explore Batches Modal -->
+    <div class="modal-overlay" id="exploreBatchesModal">
+      <div class="modal-box" style="max-width: 600px; max-height: 80vh; display: flex; flex-direction: column;">
+        <h3>Explore Batches</h3>
+        <p>View other batches and their students.</p>
+        <div id="exploreBatchesList" style="flex:1; overflow-y:auto; margin-bottom:15px; display:flex; flex-direction:column; gap:10px;">
+          <!-- Batches rendered here -->
+        </div>
+        <div class="modal-actions">
+          <button class="ghost" id="btnExploreBatchesClose">Close</button>
+        </div>
+      </div>
+    </div>
+    <!-- Reviews Modal -->
+    <div class="modal-overlay" id="reviewsModal">
+      <div class="modal-box" style="max-width: 500px; display: flex; flex-direction: column;">
+        <h3>Feedback & Reviews</h3>
+        
+        <div style="margin-bottom: 20px; border-bottom: 1px solid var(--line); padding-bottom: 20px;">
+          <h4 style="margin-top: 0;">Submit Feedback</h4>
+          <div style="display:flex; flex-direction: column; gap:10px;">
+            <select id="reviewRating" style="padding:10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text);">
+              <option value="5">⭐⭐⭐⭐⭐ (5) - Excellent</option>
+              <option value="4">⭐⭐⭐⭐ (4) - Good</option>
+              <option value="3">⭐⭐⭐ (3) - Average</option>
+              <option value="2">⭐⭐ (2) - Poor</option>
+              <option value="1">⭐ (1) - Terrible</option>
+            </select>
+            <textarea id="reviewComment" placeholder="Write your feedback..." rows="3" style="border:1px solid var(--line); border-radius:8px; padding:10px; background:var(--bg); color:var(--text); width:100%; box-sizing:border-box;"></textarea>
+            <button class="primary small" id="btnSubmitReview">Submit Feedback</button>
+          </div>
+        </div>
+
+        <h4 style="margin-top: 0;">Recent Feedback</h4>
+        <div id="reviewsList" style="max-height: 250px; overflow-y:auto; margin-bottom:15px; display:flex; flex-direction:column; gap:10px;">
+          <!-- Reviews rendered here -->
+        </div>
+        <div class="modal-actions">
+          <button class="ghost" id="btnReviewsClose">Close</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Combine Study Modal -->
+    <div class="modal-overlay" id="combineStudyModal">
+      <div class="modal-box" style="max-width: 500px;">
+        <h3>Combine Study</h3>
+        <p>Select students to invite to a Google Meet session.</p>
+        <div id="combineStudyList" style="max-height: 250px; overflow-y:auto; margin-bottom:15px; display:flex; flex-direction:column; gap:8px;">
+          <!-- Checkboxes rendered here -->
+        </div>
+        <div class="modal-actions">
+          <button class="ghost" id="btnCombineStudyClose">Cancel</button>
+          <button class="primary" id="btnCombineStudySchedule">Schedule in Google Calendar</button>
+        </div>
+      </div>
+    </div>
+    
     <!-- Manage Approvals Modal -->
     <div class="modal-overlay" id="manageApprovalsModal">
       <div class="modal-box" style="max-width: 500px;">
@@ -304,9 +397,25 @@
 </div>
 
 <!-- Chat Toggle Button (Floating) -->
-<button id="btnToggleChat" class="floating-chat-btn" style="display:none;">
+<button id="btnToggleChat" class="floating-chat-btn" style="display:none; bottom:24px; right:100px;">
   💬 <span id="globalChatBadge" class="badge" style="display:none;">0</span>
 </button>
+<button id="btnToggleBot" class="floating-chat-btn" style="display:inline-flex; background:var(--panel-hi); color:var(--text); border:1px solid var(--line); bottom:24px; right:24px;">🤖</button>
+
+<!-- Floating AI Chatbot -->
+<div id="aiChatbotWrapper" style="position:fixed; bottom:100px; right:24px; width:350px; height:450px; background:var(--bg); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-hover); display:none; flex-direction:column; z-index:101; overflow:hidden;">
+  <div style="background:var(--panel-hi); padding:15px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center;">
+    <h3 style="margin:0; font-size:1rem;">🤖 BrotoBot Assistant</h3>
+    <button class="ghost small" id="btnCloseBot">✕</button>
+  </div>
+  <div id="botMessages" style="flex:1; overflow-y:auto; padding:15px; display:flex; flex-direction:column; gap:10px;">
+    <div class="chat-msg" style="background:var(--panel-hi); color:var(--text); align-self:flex-start;">Hello! I'm your BrotoStat AI assistant. Ask me anything about how the app works!</div>
+  </div>
+  <div style="padding:15px; border-top:1px solid var(--line); display:flex; gap:10px;">
+    <input type="text" id="botInput" placeholder="Ask a question..." style="flex:1; border:1px solid var(--line); border-radius:20px; padding:8px 12px; background:var(--panel); color:var(--text); outline:none;">
+    <button class="primary small" id="btnSendBot" style="border-radius:20px;">Ask</button>
+  </div>
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

@@ -77,6 +77,7 @@ function rowToStudent(r) {
   return {
     id: r.id,
     name: r.name,
+    email: r.email,
     level: r.level,
     description: r.description || '',
     domain: r.domain || '',
@@ -167,6 +168,80 @@ app.get('/api/admin/batches', authenticateToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'DB error' });
   }
+});
+
+// Create Student (Admin)
+app.post('/api/admin/students', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'global_admin' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const { name, email, password, batch_id, role } = req.body;
+  if (!name || !email || !password || !batch_id) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  
+  // Verify batch permission if regular admin
+  if (req.user.role === 'admin' && req.user.batch_id !== batch_id) {
+    return res.status(403).json({ error: 'Can only create users for your own batch' });
+  }
+
+  try {
+    const { rows: existing } = await pool.query('SELECT id FROM students WHERE email = $1', [email]);
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newId = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO students 
+      (id, name, email, password_hash, role, level, xp, join_date, batch_id, batch_status)
+      VALUES ($1, $2, $3, $4, $5, 1, 0, $6, $7, 'approved')`,
+      [newId, name, email, hashedPassword, role || 'member', Date.now(), batch_id]
+    );
+
+    res.json({ message: 'User created successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'DB error' });
+  }
+});
+
+// RAG Bot Chat endpoint
+const { exec } = require('child_process');
+
+app.post('/api/bot/ask', authenticateToken, (req, res) => {
+  const { question } = req.body;
+  if (!question) return res.status(400).json({ error: 'Missing question' });
+
+  // Escape double quotes to prevent command injection
+  const safeQuestion = question.replace(/"/g, '\\"');
+  
+  exec(`python "D:/RAG-FC/simple_rag.py" "${safeQuestion}"`, (error, stdout, stderr) => {
+    if (error) {
+      console.error('Bot Error:', stderr);
+      return res.status(500).json({ error: 'Failed to process question' });
+    }
+    try {
+      // Find the first valid JSON line
+      const lines = stdout.split('\n');
+      let result = null;
+      for (const line of lines) {
+        if (line.trim().startsWith('{')) {
+          result = JSON.parse(line);
+          break;
+        }
+      }
+      
+      if (!result) throw new Error('No JSON output from bot');
+      if (result.error) throw new Error(result.error);
+      
+      res.json({ answer: result.answer });
+    } catch (e) {
+      console.error('Parse error:', e, stdout);
+      res.status(500).json({ error: 'Invalid response from bot' });
+    }
+  });
 });
 
 // Enter Batch (Global Admin)
@@ -363,6 +438,11 @@ app.post('/api/batches', authenticateToken, async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({error: 'Batch name required'});
   try {
+    const { rows: existing } = await pool.query('SELECT id FROM batches WHERE lower(name) = lower($1)', [name]);
+    if (existing.length > 0) {
+      return res.status(409).json({error: 'Batch already existed'});
+    }
+
     const batchId = crypto.randomUUID();
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     await pool.query(
@@ -402,6 +482,58 @@ app.post('/api/batches/join', authenticateToken, async (req, res) => {
   } catch(err) {
     console.error(err);
     res.status(500).json({error: 'DB error'});
+  }
+});
+
+// Get all batches (Public visibility)
+app.get('/api/batches/all', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT id, name, created_at FROM batches ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'DB error' });
+  }
+});
+
+// Get students for a specific batch (Public visibility)
+app.get('/api/batches/:id/students', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await withRetry(() =>
+      pool.query('SELECT id, name, level, xp, role, batch_id, batch_status FROM students WHERE batch_id = $1 AND batch_status = $2 ORDER BY level DESC, name ASC', [req.params.id, 'approved'])
+    );
+    res.json(rows.map(rowToStudent).map(withComputed));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'DB error' });
+  }
+});
+
+// Reviews API
+app.post('/api/reviews', authenticateToken, async (req, res) => {
+  const { rating, comment } = req.body;
+  if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating must be 1-5' });
+  try {
+    const id = crypto.randomUUID();
+    await pool.query(
+      'INSERT INTO reviews (id, user_id, rating, comment, created_at) VALUES ($1, $2, $3, $4, $5)',
+      [id, req.user.id, rating, comment || '', Date.now()]
+    );
+    res.json({ message: 'Review submitted' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'DB error' });
+  }
+});
+
+app.get('/api/reviews', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT r.*, s.name, s.avatar FROM reviews r JOIN students s ON r.user_id = s.id ORDER BY r.created_at DESC LIMIT 50'
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'DB error' });
   }
 });
 
