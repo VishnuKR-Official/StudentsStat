@@ -702,7 +702,7 @@
         showMessage('Pending Approval', 'Your request to join the batch is pending admin approval.');
       } else if (currentUser.batch_status === 'approved') {
         if (currentBatchHeader && currentUser.batch_name) {
-          let editIconHtml = (currentUser.role === 'admin') ? ` <i class="fas fa-edit" id="btnEditBatchNameHeader" style="cursor:pointer; font-size: 0.9em; opacity: 0.8;" title="Edit Batch Name"></i>` : '';
+          let editIconHtml = ((currentUser.role === 'admin' || currentUser.role === 'global_admin')) ? ` <i class="fas fa-edit" id="btnEditBatchNameHeader" style="cursor:pointer; font-size: 0.9em; opacity: 0.8;" title="Edit Batch Name"></i>` : '';
           currentBatchHeader.innerHTML = 'Batch: ' + escapeHtml(currentUser.batch_name) + editIconHtml;
           currentBatchHeader.style.display = 'block';
           
@@ -758,13 +758,13 @@
     const btnOpenGroupChat = document.getElementById('btnOpenGroupChat');
         if (btnOpenGroupChat) btnOpenGroupChat.style.display = 'inline-block';
         
-        if (currentUser.role === 'admin') {
+        if ((currentUser.role === 'admin' || currentUser.role === 'global_admin')) {
           if (btnAdminTools) btnAdminTools.style.display = 'inline-block';
           btnManageApprovals.style.display = 'inline-block';
         }
         
         const userHasProfile = students.some(s => s.id === currentUser.id || s.email === currentUser.email);
-        if (userHasProfile || currentUser.role === 'admin') {
+        if (userHasProfile || (currentUser.role === 'admin' || currentUser.role === 'global_admin')) {
           btnJoinRace.style.display = 'none';
         } else {
           btnJoinRace.style.display = 'inline-block';
@@ -1154,9 +1154,9 @@
       const thresh = (i + 1) * 4;
       segs += `<i class="${s.level >= thresh ? 'on' : ''}"></i>`;
     }
-    let canEdit = currentUser && (currentUser.role === 'admin' || currentUser.id === s.id);
+    let canEdit = currentUser && ((currentUser.role === 'admin' || currentUser.role === 'global_admin') || currentUser.id === s.id);
     let isOtherUser = currentUser && currentUser.id !== s.id;
-    let isAdminViewer = currentUser && currentUser.role === 'admin';
+    let isAdminViewer = currentUser && (currentUser.role === 'admin' || currentUser.role === 'global_admin');
     let showAdminControls = isAdminViewer && isOtherUser;
     
     card.innerHTML = `
@@ -2446,23 +2446,7 @@
     drawLanding();
   }
 
-window.enterGlobalBatch = async function(batch_id) {
-  try {
-    let authToken = localStorage.getItem('authToken');
-    const res = await fetch('/api/admin/enter-batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
-      body: JSON.stringify({ batch_id })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed');
-    localStorage.setItem('authToken', data.token);
-    localStorage.setItem('currentUser', JSON.stringify(data.user));
-    window.location.reload();
-  } catch(e) {
-    alert(e.message);
-  }
-};
+
 
 
 

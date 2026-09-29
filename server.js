@@ -290,21 +290,6 @@ app.post('/api/bot/ask', (req, res) => {
   });
 });
 
-// Enter Batch (Global Admin)
-app.post('/api/admin/enter-batch', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'global_admin') return res.status(403).json({ error: 'Forbidden' });
-  const { batch_id } = req.body;
-  try {
-    const { rows } = await pool.query('SELECT * FROM batches WHERE id = $1', [batch_id]);
-    if (rows.length === 0) return res.status(404).json({ error: 'Batch not found' });
-    const tokenUser = { ...req.user, batch_id: rows[0].id, batch_name: rows[0].name };
-    const token = jwt.sign(tokenUser, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: tokenUser });
-  } catch (err) {
-    res.status(500).json({ error: 'DB error' });
-  }
-});
-
 // Batch Name Edit
 app.put('/api/batches/:id/name', authenticateToken, async (req, res) => {
   if (req.user.role !== 'admin' && req.user.role !== 'global_admin') {
@@ -553,11 +538,13 @@ app.post('/api/batches/join/:id', authenticateToken, async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT id FROM batches WHERE id = $1', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({error: 'Batch not found'});
+    
+    const status = req.user.role === 'global_admin' ? 'approved' : 'pending';
     await pool.query(
       'UPDATE students SET batch_id = $1, batch_status = $2 WHERE id = $3',
-      [req.params.id, 'pending', req.user.id]
+      [req.params.id, status, req.user.id]
     );
-    res.json({ message: 'Request to join sent. Waiting for admin approval.' });
+    res.json({ message: status === 'approved' ? 'Joined successfully.' : 'Request to join sent. Waiting for admin approval.' });
   } catch(err) {
     console.error(err);
     res.status(500).json({error: 'DB error'});
