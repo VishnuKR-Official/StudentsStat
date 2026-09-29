@@ -242,6 +242,7 @@ footer { max-width: 1080px; margin: 40px auto 0; color: var(--muted); font-size:
   background: var(--bg); border: 1px solid var(--line); border-radius: 20px;
   padding: 32px; max-width: 420px; width: 90%; box-shadow: var(--shadow-hover);
   transform: scale(0.95) translateY(10px); transition: transform .3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  max-height: 90vh; overflow-y: auto;
 }
 .modal-overlay.open .modal-box { transform: scale(1) translateY(0); }
 .modal-box h3 { margin: 0 0 10px; font-size: 1.4rem; color: var(--text); font-weight: 600; }
@@ -352,3 +353,4 @@ footer { max-width: 1080px; margin: 40px auto 0; color: var(--muted); font-size:
   opacity: 1;
   transform: scale(1.1);
 }
+@media (max-width: 768px) { .modal-box { padding: 24px 20px !important; max-height: 80vh !important; overflow-y: auto !important; } }
