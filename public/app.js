@@ -330,21 +330,58 @@
       exploreBatchesList.innerHTML = '<p>Loading...</p>';
       try {
         const batches = await api('/api/batches/all');
-        exploreBatchesList.innerHTML = batches.map(b => `
+        exploreBatchesList.innerHTML = batches.map(b => {
+          const canJoin = currentUser && !currentUser.batch_id;
+          const canDelete = currentUser && currentUser.role === 'global_admin';
+          const joinBtn = canJoin ? `<button class="primary small" onclick="requestJoinBatch('${b.id}')">Join</button>` : '';
+          const deleteBtn = canDelete ? `<button class="ghost small" style="color:var(--rose); border-color:var(--rose);" onclick="deleteBatchExplore('${b.id}')">Delete</button>` : '';
+          return `
           <div style="background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:15px; margin-bottom:10px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
               <strong style="font-size:1.1rem;">${escapeHtml(b.name)}</strong>
-              <button class="ghost small" onclick="loadExploreBatchStudents('${b.id}', this)">View Students</button>
+              <div style="display:flex; gap:5px;">
+                ${joinBtn}
+                ${deleteBtn}
+                <button class="ghost small" onclick="loadExploreBatchStudents('${b.id}', this)">View Students</button>
+              </div>
             </div>
             <div id="explore-students-${b.id}" style="display:none; flex-direction:column; gap:5px; border-top:1px solid var(--line); padding-top:10px; margin-top:5px;"></div>
           </div>
-        `).join('');
+          `;
+        }).join('');
       } catch (err) {
         exploreBatchesList.innerHTML = `<p style="color:var(--rose)">Error: ${err.message}</p>`;
       }
     });
   }
   
+  window.requestJoinBatch = async (batchId) => {
+    if (confirm('Request to join this batch?')) {
+      try {
+        await api(`/api/batches/join/${batchId}`, { method: 'POST' });
+        showMessage('Success', 'Join request sent! Awaiting admin approval.');
+        currentUser.batch_id = batchId;
+        currentUser.batch_status = 'pending';
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        window.location.reload();
+      } catch (e) {
+        showMessage('Error', e.message);
+      }
+    }
+  };
+
+  window.deleteBatchExplore = async (batchId) => {
+    if (confirm('Permanently delete this batch?')) {
+      try {
+        await api(`/api/batches/${batchId}`, { method: 'DELETE' });
+        showMessage('Success', 'Batch deleted.');
+        if (btnExploreBatches) btnExploreBatches.click();
+      } catch (e) {
+        showMessage('Error', e.message);
+      }
+    }
+  };
+
   if (btnExploreBatchesClose) {
     btnExploreBatchesClose.addEventListener('click', () => {
       exploreBatchesModal.classList.remove('open');
@@ -1839,6 +1876,14 @@
       showMessage('Error', e.message);
     }
   });
+
+  const btnAdminManageApprovalsAlt = document.getElementById('btnAdminManageApprovalsAlt');
+  if (btnAdminManageApprovalsAlt) {
+    btnAdminManageApprovalsAlt.addEventListener('click', () => {
+      document.getElementById('adminToolsModal').classList.remove('open');
+      btnManageApprovals.click();
+    });
+  }
 
   btnManageApprovals.addEventListener('click', async () => {
     try {

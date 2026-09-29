@@ -549,6 +549,21 @@ app.post('/api/batches/join', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/api/batches/join/:id', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT id FROM batches WHERE id = $1', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({error: 'Batch not found'});
+    await pool.query(
+      'UPDATE students SET batch_id = $1, batch_status = $2 WHERE id = $3',
+      [req.params.id, 'pending', req.user.id]
+    );
+    res.json({ message: 'Request to join sent. Waiting for admin approval.' });
+  } catch(err) {
+    console.error(err);
+    res.status(500).json({error: 'DB error'});
+  }
+});
+
 // Get all batches (Public visibility)
 app.get('/api/batches/all', async (req, res) => {
   try {
