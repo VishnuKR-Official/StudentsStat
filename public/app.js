@@ -2314,6 +2314,39 @@
   };
 
   init();
+
+  // --- Weekly Notification Setup ---
+  function setupWeeklyNotification() {
+    if ("Notification" in window) {
+      // Ask for permission if not decided
+      if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+        Notification.requestPermission();
+      }
+      
+      const checkAndSend = () => {
+        if (Notification.permission === "granted") {
+          const now = new Date();
+          // Monday is 1, check if between 10:30 and 10:40 AM
+          if (now.getDay() === 1 && now.getHours() === 10 && now.getMinutes() >= 30 && now.getMinutes() < 40) {
+            const todayStr = now.toDateString();
+            const lastSent = localStorage.getItem('lastMondayNotification');
+            if (lastSent !== todayStr) {
+              new Notification("RankBoard Reminder", {
+                body: "Update your current module status if there have any change.",
+                icon: "/favicon.ico"
+              });
+              localStorage.setItem('lastMondayNotification', todayStr);
+            }
+          }
+        }
+      };
+      
+      setInterval(checkAndSend, 60000); // Check every minute
+      checkAndSend(); // Also check immediately on load
+    }
+  }
+  setupWeeklyNotification();
+
   setTimeout(() => { if (window.updateBadgeUI) window.updateBadgeUI(); }, 1000);
   // Refresh periodically so streak/emoji state (and other people's edits) stay current
   setInterval(loadStudents, 30000);
