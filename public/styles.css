@@ -205,10 +205,29 @@ footer { max-width: 1080px; margin: 40px auto 0; color: var(--muted); font-size:
 
 .tagline { font-size: 1.1rem; color: var(--text); margin-bottom: 12px; font-weight: 500; letter-spacing: -0.01em; }
 
+@media (max-width: 768px) {
+  body { padding: 16px 12px 80px; }
+  header.top { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .title-block h1 { font-size: 1.8rem; }
+  .stats { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .stat { text-align: left; }
+  .stat .n { font-size: 1.3rem; }
+  .toolbar { justify-content: flex-start; width: 100%; }
+  .chat-sidebar { width: 100%; right: -100%; }
+  .glitch { font-size: 3rem; }
+  .landing-hero p { font-size: 1rem; padding: 0 10px; }
+  .floating-chat-btn { bottom: 16px; right: 16px; width: 56px; height: 56px; font-size: 1.2rem; }
+  #btnToggleChat { right: 80px !important; }
+  #aiChatbotWrapper { width: 90% !important; right: 5% !important; bottom: 85px !important; height: 60vh !important; }
+}
+
 @media (max-width: 480px) {
-  .stats { gap: 14px; }
+  .stats { flex-direction: column; gap: 14px; }
   .panel-row { gap: 10px; }
   .field input[type=text], .field textarea, .field input[type=email], .field input[type=password] { width: 100%; }
+  .card { padding: 16px; }
+  .glitch { font-size: 2.2rem; }
+  .grid { grid-template-columns: 1fr; }
 }
 
 /* Modal Overlay & Security Dialog */

@@ -49,6 +49,7 @@
       <button class="primary" id="btnJoinRace" style="display:none;">+ Join Race</button>
       <button class="primary small" id="btnInstallApp" style="display:none;"><i class="fas fa-download"></i> Install App</button>
       <button class="ghost small" id="btnLoginToggle">Login / Register</button>
+      <button class="ghost small" id="btnOpenBatchSetup" style="display:none;">⚙️ Batch Setup</button>
       
       <!-- Batch specific toolbar items -->
       <button class="ghost small" id="btnInviteCode" style="display:none;" title="Copy Invite Link">🔗 Invite</button>
@@ -135,6 +136,7 @@
         
         <div style="margin-top: 20px; text-align: center;">
           <button class="ghost" onclick="document.getElementById('btnExploreBatches').click();">🔍 Explore Other Batches</button>
+          <button class="ghost" id="btnBatchSetupClose">Close / Skip</button>
         </div>
       </div>
     </div>
@@ -151,6 +153,10 @@
             <input type="text" id="adminCreateUserPassword" placeholder="Temporary Password">
             <button class="primary small" id="btnAdminCreateUser">Create Student</button>
           </div>
+        </div>
+        <div style="margin-bottom: 20px; border-bottom: 1px solid var(--line); padding-bottom: 20px;">
+          <h4 style="margin-top: 0; color: var(--rose);">Danger Zone</h4>
+          <button class="primary small" id="btnAdminDeleteBatch" style="background: var(--rose); border-color: var(--rose);">Delete Batch</button>
         </div>
         <div class="modal-actions">
           <button class="ghost" id="btnAdminToolsClose">Close</button>

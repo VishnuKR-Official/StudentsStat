@@ -200,6 +200,20 @@
   const manageApprovalsModal = document.getElementById('manageApprovalsModal');
   const pendingUsersList = document.getElementById('pendingUsersList');
   const btnManageApprovalsClose = document.getElementById('btnManageApprovalsClose');
+  const btnBatchSetupClose = document.getElementById('btnBatchSetupClose');
+  const btnOpenBatchSetup = document.getElementById('btnOpenBatchSetup');
+  
+  if (btnBatchSetupClose) {
+    btnBatchSetupClose.addEventListener('click', () => {
+      batchSetupModal.classList.remove('open');
+    });
+  }
+  
+  if (btnOpenBatchSetup) {
+    btnOpenBatchSetup.addEventListener('click', () => {
+      batchSetupModal.classList.add('open');
+    });
+  }
   
   // Chart Elements
   const btnViewTrack = document.getElementById('btnViewTrack');
@@ -276,6 +290,28 @@
         loadStudents();
       } catch (e) {
         showMessage('Error', e.message);
+      }
+    });
+  }
+
+  const btnAdminDeleteBatch = document.getElementById('btnAdminDeleteBatch');
+  if (btnAdminDeleteBatch) {
+    btnAdminDeleteBatch.addEventListener('click', async () => {
+      if (!currentUser || !currentUser.batch_id) return;
+      if (await askConfirm('Delete Batch', 'Are you sure you want to permanently delete this batch? All students will be removed from the batch. This action cannot be undone.')) {
+        try {
+          await api(`/api/batches/${currentUser.batch_id}`, { method: 'DELETE' });
+          adminToolsModal.classList.remove('open');
+          showMessage('Success', 'Batch deleted successfully.');
+          // Log out or reset state
+          currentUser.batch_id = null;
+          currentUser.batch_status = null;
+          currentUser.batch_name = null;
+          localStorage.setItem('currentUser', JSON.stringify(currentUser));
+          window.location.reload();
+        } catch (e) {
+          showMessage('Error', e.message);
+        }
       }
     });
   }
@@ -585,6 +621,8 @@
     if (btnLeaveBatch) btnLeaveBatch.style.display = 'none';
     batchSetupModal.classList.remove('open');
     if (btnAdminTools) btnAdminTools.style.display = 'none';
+    const btnOpenBatchSetup = document.getElementById('btnOpenBatchSetup');
+    if (btnOpenBatchSetup) btnOpenBatchSetup.style.display = 'none';
     
     if (authToken && currentUser) {
       if (landingHero) landingHero.style.display = 'none';
@@ -595,6 +633,7 @@
       
       if (!currentUser.batch_id) {
         batchSetupModal.classList.add('open');
+        if (btnOpenBatchSetup) btnOpenBatchSetup.style.display = 'inline-block';
         if (currentUser.role === 'global_admin') {
           const gaSection = document.getElementById('globalAdminBatchesSection');
           const gaList = document.getElementById('globalAdminBatchesList');

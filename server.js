@@ -256,7 +256,7 @@ app.post('/api/auth/google', async (req, res) => {
 // RAG Bot Chat endpoint
 const { exec } = require('child_process');
 
-app.post('/api/bot/ask', authenticateToken, (req, res) => {
+app.post('/api/bot/ask', (req, res) => {
   const { question } = req.body;
   if (!question) return res.status(400).json({ error: 'Missing question' });
 
@@ -319,6 +319,24 @@ app.put('/api/batches/:id/name', authenticateToken, async (req, res) => {
     await pool.query('UPDATE batches SET name = $1 WHERE id = $2', [name, req.params.id]);
     res.json({ success: true, name });
   } catch (err) {
+    res.status(500).json({ error: 'DB error' });
+  }
+});
+
+// Delete Batch
+app.delete('/api/batches/:id', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'global_admin') {
+    return res.status(403).json({ error: 'Only admins can delete batches' });
+  }
+  if (req.user.role === 'admin' && req.user.batch_id !== req.params.id) {
+    return res.status(403).json({ error: 'You can only delete your own batch' });
+  }
+  try {
+    await pool.query('UPDATE students SET batch_id = NULL, batch_status = NULL, role = $1 WHERE batch_id = $2', ['student', req.params.id]);
+    await pool.query('DELETE FROM batches WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'DB error' });
   }
 });
@@ -532,22 +550,24 @@ app.post('/api/batches/join', authenticateToken, async (req, res) => {
 });
 
 // Get all batches (Public visibility)
-app.get('/api/batches/all', authenticateToken, async (req, res) => {
+app.get('/api/batches/all', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT id, name, created_at FROM batches ORDER BY created_at DESC');
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: 'DB error' });
+    console.error('Explore Batches DB Error:', err);
+    res.status(500).json({ error: 'DB error: ' + err.message });
   }
 });
 
 // Get students for a specific batch (Public visibility)
-app.get('/api/batches/:id/students', authenticateToken, async (req, res) => {
+app.get('/api/batches/:id/students', async (req, res) => {
   try {
     const { rows } = await withRetry(() =>
-      pool.query('SELECT id, name, level, xp, role, batch_id, batch_status FROM students WHERE batch_id = $1 AND batch_status = $2 ORDER BY level DESC, name ASC', [req.params.id, 'approved'])
+      pool.query('SELECT * FROM students WHERE batch_id = $1 AND batch_status = $2 ORDER BY level DESC, name ASC', [req.params.id, 'approved'])
     );
-    res.json(rows.map(rowToStudent).map(withComputed));
+    const safeRows = rows.map(r => { delete r.password_hash; return r; });
+    res.json(safeRows.map(rowToStudent).map(withComputed));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'DB error' });
