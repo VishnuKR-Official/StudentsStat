@@ -1,6 +1,7 @@
 (function () {
   let authToken = localStorage.getItem('authToken') || null;
   let currentUser = null;
+  let userDismissedBatchSetup = false;
   try { currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null'); } catch(e) { localStorage.removeItem('currentUser'); }
   
   const btnThemeToggle = document.getElementById('btnThemeToggle');
@@ -205,12 +206,14 @@
   
   if (btnBatchSetupClose) {
     btnBatchSetupClose.addEventListener('click', () => {
+      userDismissedBatchSetup = true;
       batchSetupModal.classList.remove('open');
     });
   }
   
   if (btnOpenBatchSetup) {
     btnOpenBatchSetup.addEventListener('click', () => {
+      userDismissedBatchSetup = false;
       batchSetupModal.classList.add('open');
     });
   }
@@ -632,7 +635,9 @@
       btnLogout.style.display = 'inline-block';
       
       if (!currentUser.batch_id) {
-        batchSetupModal.classList.add('open');
+        if (!userDismissedBatchSetup) {
+          batchSetupModal.classList.add('open');
+        }
         if (btnOpenBatchSetup) btnOpenBatchSetup.style.display = 'inline-block';
         if (currentUser.role === 'global_admin') {
           const gaSection = document.getElementById('globalAdminBatchesSection');
