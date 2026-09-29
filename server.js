@@ -630,7 +630,7 @@ app.get('/api/batches/pending', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/batches/approve/:studentId', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({error: 'Only batch admin can approve'});
+  if (req.user.role !== 'admin' && req.user.role !== 'global_admin') return res.status(403).json({error: 'Only batch admin can approve'});
   try {
     await pool.query('UPDATE students SET batch_status = $1 WHERE id = $2 AND batch_id = $3', ['approved', req.params.studentId, req.user.batch_id]);
     res.json({ success: true });
@@ -641,7 +641,7 @@ app.post('/api/batches/approve/:studentId', authenticateToken, async (req, res) 
 });
 
 app.post('/api/batches/reject/:studentId', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({error: 'Only batch admin can reject'});
+  if (req.user.role !== 'admin' && req.user.role !== 'global_admin') return res.status(403).json({error: 'Only batch admin can reject'});
   try {
     await pool.query('UPDATE students SET batch_id = NULL, batch_status = NULL WHERE id = $1 AND batch_id = $2', [req.params.studentId, req.user.batch_id]);
     res.json({ success: true });
@@ -651,31 +651,10 @@ app.post('/api/batches/reject/:studentId', authenticateToken, async (req, res) =
   }
 });
 
-app.post('/api/students/:id/role', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({error: 'Only admin can change roles'});
-  try {
-    // Only allow setting role to 'admin' or 'student'
-    const newRole = req.body.role === 'admin' ? 'admin' : 'student';
-    // Ensure the target student is actually in the same batch
-    const { rows } = await pool.query('SELECT batch_id, role FROM students WHERE id = $1', [req.params.id]);
-    if (rows.length === 0 || rows[0].batch_id !== req.user.batch_id) {
-      return res.status(404).json({error: 'Student not found in your batch'});
-    }
-    // Prevent removing own admin privileges to avoid getting locked out, unless there's another admin? No need to overcomplicate.
-    if (req.params.id === req.user.id && newRole !== 'admin') {
-      return res.status(400).json({error: 'Cannot remove your own admin privileges'});
-    }
-    
-    await pool.query('UPDATE students SET role = $1 WHERE id = $2', [newRole, req.params.id]);
-    res.json({ success: true, role: newRole });
-  } catch(err) {
-    console.error(err);
-    res.status(500).json({error: 'DB error'});
-  }
-});
+
 
 app.post('/api/students/:id/block', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({error: 'Only admin can block users'});
+  if (req.user.role !== 'admin' && req.user.role !== 'global_admin') return res.status(403).json({error: 'Only admin can block users'});
   try {
     const { rows } = await pool.query('SELECT batch_id FROM students WHERE id = $1', [req.params.id]);
     if (rows.length === 0 || rows[0].batch_id !== req.user.batch_id) {
