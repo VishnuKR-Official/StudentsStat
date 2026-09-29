@@ -329,7 +329,10 @@
       exploreBatchesModal.classList.add('open');
       exploreBatchesList.innerHTML = '<p>Loading...</p>';
       try {
-        const batches = await api('/api/batches/all');
+        let batches = await api('/api/batches/all');
+        if (currentUser && currentUser.batch_id && currentUser.role !== 'global_admin') {
+          batches = batches.filter(b => b.id !== currentUser.batch_id);
+        }
         exploreBatchesList.innerHTML = batches.map(b => {
           const canJoin = currentUser && !currentUser.batch_id;
           const canDelete = currentUser && currentUser.role === 'global_admin';
@@ -650,6 +653,9 @@
   }
 
   function updateAuthUI() {
+    const currentBatchHeader = document.getElementById('currentBatchHeader');
+    if (currentBatchHeader) currentBatchHeader.style.display = 'none';
+    
     // Reset displays
     btnLoginToggle.style.display = 'inline-block';
     btnLogout.style.display = 'none';
@@ -695,6 +701,31 @@
         batchSetupModal.classList.remove('open');
         showMessage('Pending Approval', 'Your request to join the batch is pending admin approval.');
       } else if (currentUser.batch_status === 'approved') {
+        if (currentBatchHeader && currentUser.batch_name) {
+          let editIconHtml = (currentUser.role === 'admin') ? ` <i class="fas fa-edit" id="btnEditBatchNameHeader" style="cursor:pointer; font-size: 0.9em; opacity: 0.8;" title="Edit Batch Name"></i>` : '';
+          currentBatchHeader.innerHTML = 'Batch: ' + escapeHtml(currentUser.batch_name) + editIconHtml;
+          currentBatchHeader.style.display = 'block';
+          
+          setTimeout(() => {
+            const btnEditBatchNameHeader = document.getElementById('btnEditBatchNameHeader');
+            if (btnEditBatchNameHeader) {
+              btnEditBatchNameHeader.addEventListener('click', async () => {
+                const newName = prompt('Enter new batch name:', currentUser.batch_name);
+                if (newName && newName.trim() !== currentUser.batch_name) {
+                  try {
+                    await api(`/api/batches/${currentUser.batch_id}/name`, {
+                      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ name: newName.trim() })
+                    });
+                    currentUser.batch_name = newName.trim();
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    window.location.reload();
+                  } catch(e) { showMessage('Error', e.message); }
+                }
+              });
+            }
+          }, 50);
+        }
         batchSetupModal.classList.remove('open');
         btnInviteCode.style.display = 'inline-block';
         const btnCombineStudy = document.getElementById('btnCombineStudy');
@@ -835,30 +866,8 @@
       }
 
       await loadStudents();
-      let editIcon = (currentUser && currentUser.role === 'admin') ? ` <i class="fas fa-edit" id="btnEditBatchName" style="cursor:pointer;" title="Edit Batch Name"></i>` : '';
-      const batchDisplay = currentUser && currentUser.batch_name ? ` (Batch: ${escapeHtml(currentUser.batch_name)}${editIcon})` : '';
-      modeBadge.innerHTML = 'Connected' + batchDisplay;
+      modeBadge.innerHTML = 'Connected';
 
-      setTimeout(() => {
-        const btnEditBatchName = document.getElementById('btnEditBatchName');
-        if (btnEditBatchName) {
-          btnEditBatchName.addEventListener('click', async () => {
-            const newName = prompt('Enter new batch name:', currentUser.batch_name);
-            if (newName && newName.trim() !== currentUser.batch_name) {
-              try {
-                await api(`/api/batches/${currentUser.batch_id}/name`, {
-                  method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ name: newName.trim() })
-                });
-                currentUser.batch_name = newName.trim();
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                init();
-  setTimeout(() => { if (window.updateBadgeUI) window.updateBadgeUI(); }, 1000);
-              } catch(e) { showMessage('Error', e.message); }
-            }
-          });
-        }
-      }, 50);
       footerNote.textContent = 'Data is stored in the server\'s database and stays until a student is deleted.';
       
       if (inviteCodeParam && !authToken) {
